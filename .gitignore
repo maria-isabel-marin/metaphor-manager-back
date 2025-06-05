@@ -1,0 +1,103 @@
+# ───────────────────────────────────────────────────────────────────────────────
+# Node.js dependencies (se aplica recursivamente, cubre tanto /backend/node_modules como cualquier otro node_modules)
+node_modules/
+
+# Carpeta de compilación de NestJS (que normalmente es /backend/dist)
+dist/
+backend/dist/
+
+# Variables de entorno
+.env
+backend/.env
+
+# Archivos de logs
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+backend/*.log
+
+# Reportes de cobertura (si se usara Jest u otra herramienta)
+coverage/
+backend/coverage/
+
+# Archivos temporales de TypeScript / bus info
+*.tsbuildinfo
+
+# IDE y editores
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# MacOS
+.DS_Store
+
+# Archivos de lock de otros gestores (si se usa Yarn o PNPM, aunque package-lock.json debe ir al repo)
+# Pero si decides usar Yarn, podrías ignorar yarn.lock; aquí se mantienen:
+# yarn.lock
+# pnpm-lock.yaml
+
+# Configuraciones locales de ESLint/Prettier (si deseas que cada desarrollador mantenga su propia config)
+# .prettierrc
+# eslint.config.mjs
+
+# Archivos de compilación JavaScript generados (por si en algún caso los commitibles)
+*.js
+*.js.map
+*.d.ts
+
+# Directorios de test temporales
+test/
+backend/test/
+
+# Otros archivos temporales o de sistema
+*.log
+*.tmp
+*.swp
+*.lock
+*.cache
+
+# Si usas Docker
+docker-compose.override.yml
+.dockerignore
+docker-compose.yml
+
+# Si usas PM2 (daemon process manager)
+pids/
+*.pid
+*.seed
+logs/
+
+# EditorConfig
+.editorconfig
+
+# Coveralls / Codecov (reportes)
+coverage.txt
+
+# Visual Studio Code
+.vscode
+
+# Visual Studio
+.vs
+
+# IntelliJ
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# JetBrains Rider
+.idea/
+
+# WebStorm
+.DS_Store
+
+# Entornos Python (por si incluyes scripts adicionales)
+__pycache__/
+*.py[cod]
+
+# Visualización de archivos con Ace Tools (archivos temporales)
+*.snapshot
+*.azure
