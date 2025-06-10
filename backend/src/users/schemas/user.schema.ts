@@ -11,6 +11,14 @@ export class User {
   @Prop({ required: true, unique: true, lowercase: true })
   email: string;
 
+  // Campo opcional para asociar la cuenta de Google
+  @Prop({ unique: true, sparse: true })
+  googleId?: string;
+
+  // URL del avatar proporcionado por Google (opcional)
+  @Prop()
+  avatar?: string;
+
   @Prop({ required: true, enum: ['editor', 'reviewer'] })
   role: 'editor' | 'reviewer';
 }
