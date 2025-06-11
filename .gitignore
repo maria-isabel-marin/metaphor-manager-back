@@ -101,3 +101,5 @@ __pycache__/
 # Visualización de archivos con Ace Tools (archivos temporales)
 *.snapshot
 *.azure
+
+backend/google-auth.json

@@ -34,7 +34,7 @@ export class AuthController {
 
     // OPCIÓN B: redirigir al frontend con el token en query params
     // (asegúrate que tu frontend luego capture ese token y lo guarde en cookie/localStorage)
-    return res.redirect(`http://localhost:3000/auth/success?token=${accessToken}`);
+    return res.redirect(`http://localhost:3001/auth/success?token=${accessToken}`);
   }
 
   /**
