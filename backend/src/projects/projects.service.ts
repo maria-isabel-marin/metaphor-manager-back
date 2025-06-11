@@ -1,5 +1,3 @@
-// File: src/projects/projects.service.ts
-
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -14,7 +12,8 @@ export class ProjectsService {
     private readonly projectModel: Model<ProjectDocument>,
   ) {}
 
-  async create(dto: CreateProjectDto): Promise<Project> {
+  /** Crea un proyecto vinculando owner como ObjectId */
+  async create(dto: CreateProjectDto & { owner: string }): Promise<Project> {
     const created = new this.projectModel({
       ...dto,
       owner: new Types.ObjectId(dto.owner),
@@ -22,10 +21,13 @@ export class ProjectsService {
     return created.save();
   }
 
-  async findAll(): Promise<Project[]> {
-    return this.projectModel.find().exec();
+  /** Lista proyectos filtrados por owner */
+  async findAll(ownerId: string): Promise<Project[]> {
+    const ownerObjectId = new Types.ObjectId(ownerId);
+    return this.projectModel.find({ owner: ownerObjectId }).exec();
   }
 
+  /** Busca un proyecto por ID, lanza 404 si no existe */
   async findOne(id: string): Promise<Project> {
     const project = await this.projectModel.findById(id).exec();
     if (!project) {
@@ -34,13 +36,11 @@ export class ProjectsService {
     return project;
   }
 
+  /** Actualiza un proyecto por ID, lanza 404 si no existe */
   async update(
     id: string,
     dto: UpdateProjectDto,
   ): Promise<Project> {
-    if (dto.owner) {
-      dto.owner = new Types.ObjectId(dto.owner) as any;
-    }
     const updated = await this.projectModel
       .findByIdAndUpdate(id, dto, { new: true })
       .exec();
@@ -50,6 +50,7 @@ export class ProjectsService {
     return updated;
   }
 
+  /** Elimina un proyecto por ID */
   async remove(id: string): Promise<void> {
     const result = await this.projectModel.findByIdAndDelete(id).exec();
     if (!result) {

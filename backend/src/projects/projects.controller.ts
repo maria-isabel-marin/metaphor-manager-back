@@ -1,5 +1,3 @@
-// File: src/projects/projects.controller.ts
-
 import {
   Controller,
   Post,
@@ -8,42 +6,71 @@ import {
   Delete,
   Param,
   Body,
-  Query,
+  Req,
+  ForbiddenException,
+  NotFoundException,
+  UseGuards,
 } from '@nestjs/common';
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('projects')
+@UseGuards(JwtAuthGuard) // Protege todas las rutas con JWT
 export class ProjectsController {
   constructor(private readonly service: ProjectsService) {}
 
+  /** Crea un proyecto, inyectando el owner desde el JWT */
   @Post()
-  create(@Body() dto: CreateProjectDto) {
-    return this.service.create(dto);
+  async create(@Req() req: any, @Body() dto: CreateProjectDto) {
+    const ownerId = req.user._id.toString();
+    return this.service.create({ ...dto, owner: ownerId });
   }
 
+  /** Lista solo los proyectos del usuario autenticado */
   @Get()
-  findAll(@Query('owner') owner?: string) {
-    // Opcional: filtrar por owner si se desea
-    return this.service.findAll();
+  async findAll(@Req() req: any) {
+    const ownerId = req.user._id.toString();
+    console.log(`Fetching projects for owner: ${ownerId}`);
+    if (!ownerId) {
+      throw new NotFoundException('Owner not found in request');
+    }
+    return this.service.findAll(ownerId);
   }
 
+  /** Obtiene un proyecto por ID, solo si es propietario */
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.service.findOne(id);
+  async findOne(@Req() req: any, @Param('id') id: string) {
+    const project = await this.service.findOne(id);
+    if (project.owner.toString() !== req.user._id.toString()) {
+      throw new ForbiddenException('You do not have access to this project');
+    }
+    return project;
   }
 
+  /** Actualiza un proyecto existente, solo si es propietario */
   @Patch(':id')
-  update(
+  async update(
+    @Req() req: any,
     @Param('id') id: string,
     @Body() dto: UpdateProjectDto,
   ) {
+    const project = await this.service.findOne(id);
+    if (project.owner.toString() !== req.user._id.toString()) {
+      throw new ForbiddenException('You cannot edit this project');
+    }
     return this.service.update(id, dto);
   }
 
+  /** Elimina un proyecto, solo si es propietario */
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.service.remove(id);
+  async remove(@Req() req: any, @Param('id') id: string) {
+    const project = await this.service.findOne(id);
+    if (project.owner.toString() !== req.user._id.toString()) {
+      throw new ForbiddenException('You cannot delete this project');
+    }
+    await this.service.remove(id);
+    return { success: true };
   }
 }

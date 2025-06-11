@@ -3,20 +3,8 @@
 import { IsString, IsMongoId, IsEmail, IsOptional } from 'class-validator';
 
 export class CreateProjectDto {
-  @IsString()
-  name: string;
-
-  @IsOptional()
-  @IsString()
-  description?: string;
-
-  @IsMongoId()
-  owner: string;
-
-  @IsEmail()
-  contactEmail: string;
-
-  @IsOptional()
-  @IsString()
-  notes?: string;
+  @IsString() name: string;
+  @IsString() description: string;
+  @IsEmail() contactEmail: string;
+  @IsOptional() @IsString() notes?: string;
 }
