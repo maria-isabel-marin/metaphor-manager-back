@@ -1,3 +1,5 @@
+// backend/src/documents/documents.controller.ts
+
 import {
   Controller,
   Get,
@@ -13,6 +15,7 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import * as multer from 'multer';
 import { DocumentsService } from './documents.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
@@ -23,8 +26,8 @@ export class DocumentsController {
   constructor(private readonly service: DocumentsService) {}
 
   @Get()
-  findAll(@Param('projectId') projectId: string) {
-    return this.service.findAll(projectId);
+  findByProject(@Param('projectId') projectId: string) {
+    return this.service.findByProject(projectId);
   }
 
   @Get(':id')
@@ -34,28 +37,33 @@ export class DocumentsController {
 
   @Post()
   @UseInterceptors(
-    FileFieldsInterceptor([
-      { name: 'filePdf', maxCount: 1 },
-      { name: 'fileTxt', maxCount: 1 },
-    ]),
+    FileFieldsInterceptor(
+      [
+        { name: 'filePdf', maxCount: 1 },
+        { name: 'fileTxt', maxCount: 1 },
+      ],
+      {
+        storage: multer.memoryStorage(),
+        limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB max
+      },
+    ),
   )
   create(
     @Req() req: any,
     @Param('projectId') projectId: string,
     @Body() dto: CreateDocumentDto,
-    @UploadedFiles() files: {
+    @UploadedFiles()
+    files: {
       filePdf?: Express.Multer.File[];
       fileTxt?: Express.Multer.File[];
     },
   ) {
-    const pdf = files.filePdf?.[0]?.path || '';
-    const txt = files.fileTxt?.[0]?.path || '';
     return this.service.create({
       ...dto,
       projectId,
-      filePdf: pdf,
-      fileTxt: txt,
       owner: req.user._id,
+      pdf: files.filePdf?.[0],
+      txt: files.fileTxt?.[0],
     });
   }
 

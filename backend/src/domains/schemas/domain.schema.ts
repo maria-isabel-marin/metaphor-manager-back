@@ -3,7 +3,7 @@ import { Document } from 'mongoose';
 
 export type DomainDocument = Domain & Document;
 
-@Schema({ timestamps: true })
+@Schema({ collection: 'domains' , timestamps: true })
 export class Domain {
   @Prop({ required: true, unique: true })
   name: string;

@@ -103,3 +103,4 @@ __pycache__/
 *.azure
 
 backend/google-auth.json
+backend/metaphormanager-auth-a9c6bb935a04.json

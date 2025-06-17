@@ -3,7 +3,7 @@ import { Document, Types } from 'mongoose';
 
 export type AnnotatedMetaphorDocument = AnnotatedMetaphor & Document;
 
-@Schema({ timestamps: true })
+@Schema({ collection: 'annotated_metaphors', timestamps: true })
 export class AnnotatedMetaphor {
   @Prop({ required: true, unique: true })
   customId: string;

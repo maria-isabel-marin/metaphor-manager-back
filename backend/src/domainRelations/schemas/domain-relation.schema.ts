@@ -3,7 +3,7 @@ import { Document, Types } from 'mongoose';
 
 export type DomainRelationDocument = DomainRelation & Document;
 
-@Schema({ timestamps: true })
+@Schema({ collection: 'domain_relations' , timestamps: true })
 export class DomainRelation {
   @Prop({ type: Types.ObjectId, ref: 'Domain', required: true })
   domainA: Types.ObjectId;

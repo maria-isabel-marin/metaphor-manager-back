@@ -1,3 +1,4 @@
+// backend/src/documents/documents.module.ts
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { DocumentsController } from './documents.controller';
@@ -14,3 +15,6 @@ import { DocumentModel, DocumentSchema } from './schemas/document.schema';
   providers: [DocumentsService],
 })
 export class DocumentsModule {}
+
+
+
