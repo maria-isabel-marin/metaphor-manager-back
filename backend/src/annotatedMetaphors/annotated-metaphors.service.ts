@@ -8,12 +8,18 @@ import { CreateAnnotatedMetaphorDto } from './dto/create-annotated-metaphor.dto'
 import { UpdateAnnotatedMetaphorDto } from './dto/update-annotated-metaphor.dto';
 import * as ExcelJS from 'exceljs';
 
+export interface ExportOptions {
+  status?: string;
+  noveltyType?: string;
+  search?: string;
+}
+
 @Injectable()
 export class AnnotatedMetaphorsService {
   constructor(
     @InjectModel(AnnotatedMetaphor.name)
     private readonly metaphorModel: Model<AnnotatedMetaphorDocument>,
-  ) {}
+  ) { }
 
   async bulkImportFromExcel(
     file: Express.Multer.File,
@@ -80,23 +86,36 @@ export class AnnotatedMetaphorsService {
     return this.changeStatus(id, 'metonymy');
   }
 
-  async exportToExcel(documentId: string): Promise<Buffer> {
-    const metaphors = await this.findByDocument(documentId);
+  async exportToExcel(
+    documentId: string,
+    options: ExportOptions = {}
+  ): Promise<Buffer> {
+    // Fetch all matching rows (no pagination)
+    const { data: metaphors } = await this.findAll(documentId, {
+      status: options.status,
+      noveltyType: options.noveltyType,
+      search: options.search,
+      page: undefined,
+      limit: undefined,
+    });
+
     const wb = new ExcelJS.Workbook();
     const sheet = wb.addWorksheet('Metaphors');
-    // Cabeceras
+
+    // Headers
     sheet.columns = [
-      { header: 'Custom ID', key: 'customId', width: 15 },
-      { header: 'Expression', key: 'expression', width: 30 },
+      { header: 'Custom ID', key: 'customId', width: 20 },
+      { header: 'Expression', key: 'expression', width: 40 },
       { header: 'Trigger Word', key: 'triggerWord', width: 20 },
-      { header: 'Lemma', key: 'lemma', width: 15 },
-      { header: 'Novelty Type', key: 'noveltyType', width: 15 },
-      { header: 'Function Type', key: 'functionType', width: 15 },
+      { header: 'Lemma', key: 'lemma', width: 20 },
+      { header: 'Novelty Type', key: 'noveltyType', width: 20 },
+      { header: 'Function Type', key: 'functionType', width: 20 },
       { header: 'Status', key: 'status', width: 15 },
-      // … agrega más columnas según necesidad
+      // …add more as needed
     ];
-    // Filas
-    metaphors.forEach((m) => {
+
+    // Rows
+    metaphors.forEach(m => {
       sheet.addRow({
         customId: m.customId,
         expression: m.expression,
@@ -107,7 +126,84 @@ export class AnnotatedMetaphorsService {
         status: m.status,
       });
     });
-    const arrayBuffer = await wb.xlsx.writeBuffer();
-    return Buffer.from(arrayBuffer);
+
+    const buffer = await wb.xlsx.writeBuffer();
+    return Buffer.from(buffer);
   }
+
+  /** list + paging/filter/sort */
+  async findAll(
+    documentId: string,
+    filter: {
+      status?: string;
+      noveltyType?: string;
+      search?: string;
+      page?: number;
+      limit?: number;
+      sortBy?: string;
+      sortDir?: 'asc' | 'desc';
+    },
+  ) {
+    console.log('[Service:findAll] documentId=', documentId, 'filter=', filter);
+    const q: any = { documentId: new Types.ObjectId(documentId) };
+    if (filter.status) q.status = filter.status;
+    if (filter.noveltyType) q.noveltyType = filter.noveltyType;
+    if (filter.search) {
+      const re = new RegExp(filter.search, 'i');
+      q.$or = [
+        { expression: re },
+        { customId: re },
+        { triggerWord: re },
+        { contextualMeaning: re },
+      ];
+    }
+
+    const page = filter.page || 1;
+    const limit = filter.limit || 25;
+    const sort: any = {};
+    if (filter.sortBy) sort[filter.sortBy] = filter.sortDir === 'desc' ? -1 : 1;
+
+    const [data, total] = await Promise.all([
+  this.metaphorModel
+    .find(q)
+    .sort(sort)
+    .skip((page - 1) * limit)
+    .limit(limit)
+    .populate('sourceDomain', 'name')  // only bring back the `name` field
+    .populate('targetDomain', 'name')
+    .lean()
+    .exec(),
+  this.metaphorModel.countDocuments(q).exec(),
+]);
+
+    return { data, total, page, limit };
+  }
+
+  /** update one (in-place edits) */
+  async updateOne(
+    id: string,
+    updates: Partial<Omit<AnnotatedMetaphor, 'createdBy' | 'documentId'>>,
+  ) {
+    const updated = await this.metaphorModel
+      .findByIdAndUpdate(id, updates, { new: true })
+      .exec();
+    if (!updated) throw new NotFoundException(`AnnotatedMetaphor ${id} not found`);
+    return updated;
+  }
+
+  /** bulk state change */
+  async bulkUpdate(
+    ids: string[],
+    updates: { status?: string; comments?: string[] },
+  ) {
+    const res = await this.metaphorModel.updateMany(
+      { _id: { $in: ids.map(id => new Types.ObjectId(id)) } },
+      { $set: updates },
+    );
+    return {
+      matched: res.matchedCount ?? 0,
+      modified: res.modifiedCount ?? 0,
+    };
+  }
+
 }

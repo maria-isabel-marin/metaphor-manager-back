@@ -1,91 +1,148 @@
-// File: src/annotatedMetaphors/annotated-metaphors.controller.ts
+// backend/src/annotatedMetaphors/annotated-metaphors.controller.ts
 
 import {
   Controller,
-  Post,
   Get,
+  Post,
   Patch,
+  Query,
   Param,
   Body,
-  UploadedFile,
+  UseGuards,
   UseInterceptors,
+  UploadedFile,
   Res,
   HttpCode,
+  BadRequestException,
+  Req,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { AnnotatedMetaphorsService } from './annotated-metaphors.service';
-import { CreateAnnotatedMetaphorDto } from './dto/create-annotated-metaphor.dto';
-import { UpdateAnnotatedMetaphorDto } from './dto/update-annotated-metaphor.dto';
-import { Response } from 'express';
+import { FileInterceptor }              from '@nestjs/platform-express';
+import * as multer                      from 'multer';
+import { Response, Request }            from 'express';
+import { JwtAuthGuard }                 from '../auth/guards/jwt-auth.guard';
+import { AnnotatedMetaphorsService }    from './annotated-metaphors.service';
 
-@Controller('annotated-metaphors')
+interface JwtRequest extends Request {
+  user: { _id: string;  /*…other JWT claims…*/ }
+}
+
+@Controller('projects/:projectId/documents/:docId/annotations')
+@UseGuards(JwtAuthGuard)
 export class AnnotatedMetaphorsController {
-  constructor(
-    private readonly service: AnnotatedMetaphorsService,
-  ) {}
+  constructor(private readonly svc: AnnotatedMetaphorsService) {}
 
-  @Post('bulk-import')
-  @UseInterceptors(FileInterceptor('file'))
-  @HttpCode(200)
-  async bulkImport(
-    @UploadedFile() file: Express.Multer.File,
-    @Body('createdBy') createdBy: string,
+  /** 1) List with filters, paging & sorting */
+  @Get()
+  list(
+    @Param('docId') docId: string,
+    @Query('status')      status?: string,
+    @Query('noveltyType') noveltyType?: string,
+    @Query('search')      search?: string,
+    @Query('page')        page?: string,
+    @Query('limit')       limit?: string,
+    @Query('sortBy')      sortBy?: string,
+    @Query('sortDir')     sortDir?: 'asc'|'desc',
   ) {
-    return this.service.bulkImportFromExcel(file, createdBy);
+    console.log('[Controller:list] docId=', docId, 'page=', page);
+    return this.svc.findAll(docId, {
+      status,
+      noveltyType,
+      search,
+      page: typeof page === 'string' && page.trim() !== '' ? parseInt(page, 10) : undefined,
+      limit: typeof limit === 'string' && limit.trim() !== '' ? parseInt(limit, 10) : undefined,
+      sortBy,
+      sortDir,
+    });
   }
 
-  @Get('document/:documentId')
-  async findByDocument(
-    @Param('documentId') documentId: string,
-  ) {
-    return this.service.findByDocument(documentId);
-  }
-
-  @Get(':id')
-  async findOne(@Param('id') id: string) {
-    return this.service.findOne(id);
-  }
-
-  @Patch(':id')
-  async update(
-    @Param('id') id: string,
-    @Body() dto: UpdateAnnotatedMetaphorDto,
-  ) {
-    return this.service.update(id, dto);
-  }
-
-  @Patch(':id/approve')
-  async approve(@Param('id') id: string) {
-    return this.service.approve(id);
-  }
-
-  @Patch(':id/to-edit')
-  async markAsToEdit(@Param('id') id: string) {
-    return this.service.markAsToEdit(id);
-  }
-
-  @Patch(':id/discard')
-  async discard(@Param('id') id: string) {
-    return this.service.discard(id);
-  }
-
-  @Patch(':id/metonymy')
-  async markAsMetonymy(@Param('id') id: string) {
-    return this.service.markAsMetonymy(id);
-  }
-
-  @Get('document/:documentId/export')
+  /** 7) Export current filter to Excel */
+  @Get('export')
   async export(
-    @Param('documentId') documentId: string,
+    @Param('docId') docId: string,
     @Res() res: Response,
+    @Query('status')      status?: string,
+    @Query('noveltyType') noveltyType?: string,
+    @Query('search')      search?: string,
+    
   ) {
-    const buffer = await this.service.exportToExcel(documentId);
+    console.log('[Controller:export] docId=', docId, 'status=', status);
+    const buffer = await this.svc.exportToExcel(docId, { status, noveltyType, search });
     res
       .set({
         'Content-Type':
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename="metaphors_${documentId}.xlsx"`,
+        'Content-Disposition': `attachment; filename="annotations_${docId}.xlsx"`,
       })
       .send(buffer);
   }
+
+  /** 2) Retrieve single annotation */
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.svc.findOne(id);
+  }
+
+  /** 3) In-place edit any fields (editor only) */
+  @Patch(':id')
+  updateOne(
+    @Param('id') id: string,
+    @Body() updates: any /* ideally a DTO for partial updates */,
+  ) {
+    return this.svc.updateOne(id, updates);
+  }
+
+  /** 4) Quick state-transitions */
+  @Patch(':id/approve')
+  approve(@Param('id') id: string) {
+    return this.svc.updateOne(id, { status: 'approved' });
+  }
+
+  @Patch(':id/to-edit')
+  markAsToEdit(@Param('id') id: string) {
+    return this.svc.updateOne(id, { status: 'to_edit' });
+  }
+
+  @Patch(':id/discard')
+  discard(@Param('id') id: string) {
+    return this.svc.updateOne(id, { status: 'discarded' });
+  }
+
+  @Patch(':id/metonymy')
+  markAsMetonymy(@Param('id') id: string) {
+    return this.svc.updateOne(id, { status: 'metonymy' });
+  }
+
+  /** 5) Bulk state change (editor only) */
+  @Post('bulk-update')
+  bulk(
+    @Body('ids')     ids: string[],
+    @Body('updates') updates: any,
+  ) {
+    console.log('[Controller:bulkImport] ids=', ids);
+    return this.svc.bulkUpdate(ids, updates);
+  }
+
+  /** 6) Bulk Excel import */
+  @Post('bulk-import')
+  @UseInterceptors(FileInterceptor('file', {
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
+    fileFilter: (_req, file, cb) => {
+      if (!/\.(xlsx|xls)$/i.test(file.originalname)) {
+        return cb(new BadRequestException('Only .xlsx/.xls allowed'), false);
+      }
+      cb(null, true);
+    },
+  }))
+  @HttpCode(200)
+  async bulkImport(
+    @Req()        req: JwtRequest,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    // req.user._id comes from JwtAuthGuard
+    console.log('[Controller:bulkImport] user=', req.user._id, 'file.originalname=', file.originalname);
+    return this.svc.bulkImportFromExcel(file, req.user._id);
+  }
+
+  
 }
