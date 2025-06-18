@@ -3,8 +3,16 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import * as XLSX from 'xlsx';
+
 import { Storage } from '@google-cloud/storage';
+import { DomainsService } from '../domains/domains.service';
+
 import { DocumentModel, DocumentDocument } from './schemas/document.schema';
+import {
+  AnnotatedMetaphor,
+  AnnotatedMetaphorDocument,
+} from '../annotatedMetaphors/schemas/annotated-metaphor.schema';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 
@@ -16,6 +24,9 @@ export class DocumentsService {
   constructor(
     @InjectModel(DocumentModel.name)
     private readonly docModel: Model<DocumentDocument>,
+    @InjectModel(AnnotatedMetaphor.name)
+    private readonly amModel: Model<AnnotatedMetaphorDocument>,
+    private readonly domainsService: DomainsService,
   ) {}
 
   /** 1) List all documents under a project, returning signed URLs */
@@ -134,4 +145,104 @@ export class DocumentsService {
     const res = await this.docModel.findByIdAndDelete(id).exec();
     if (!res) throw new NotFoundException(`Document ${id} not found`);
   }
+
+  async uploadAnnotations(
+  documentId: string,
+  userId: string,
+  buffer: Buffer,
+): Promise<{ inserted: number }> {
+  // 1) Load workbook & first sheet
+  const workbook  = XLSX.read(buffer,   { type: 'buffer' });
+  const sheetName = workbook.SheetNames[0];
+  const rows: any[] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
+    defval: '',       // fill missing cells with empty string
+    raw:   false,     // coerce to strings
+  });
+
+  let inserted = 0;
+
+  for (const row of rows) {
+    // 2) Destructure exactly your headers:
+    const {
+      customId,
+      section,
+      subsection,
+      subsubsection,
+      page,
+      expression,
+      context,
+      triggerWord,
+      lemma,
+      contextualMeaning,
+      literalMeaning,
+      conceptualMetaphor,
+      sourceDomain,
+      targetDomain,
+      ontologicalMappings,
+      epistemicMappings,
+      noveltyType,
+      comments,
+      functionType,
+    } = row;
+
+    // 3) Skip if no expression or no domains
+    if (!expression || !sourceDomain || !targetDomain) {
+      continue;
+    }
+
+    // 4) Upsert source/target domains
+    const src = await this.domainsService.findOrCreate(
+      sourceDomain,
+      'source',
+    );
+    const tgt = await this.domainsService.findOrCreate(
+      targetDomain,
+      'target',
+    );
+
+    // 5) Build new AnnotatedMetaphor document
+    const am = new this.amModel({
+      customId:           customId?.toString()       || new Types.ObjectId().toHexString(),
+      documentId:         new Types.ObjectId(documentId),
+      expression:         expression.toString(),
+      section:            section?.toString()        || 'undefined',
+      subsection:         subsection?.toString()     || undefined,
+      subsubsection:      subsubsection?.toString()  || undefined,
+      page:               Number(page)               || 0,
+      triggerWord:        triggerWord?.toString()    || 'unknown_word',
+      lemma:              lemma?.toString()          || 'unknown_lemma',
+      context:            context?.toString()        || 'undefined',
+      literalMeaning:     literalMeaning?.toString() || 'undefined',
+      contextualMeaning:  contextualMeaning?.toString() || 'undefined',
+      sourceDomain:       src._id,
+      targetDomain:       tgt._id,
+      conceptualMetaphor: conceptualMetaphor?.toString() || '',
+      ontologicalMappings: String(ontologicalMappings || '')
+        .split(';')
+        .map(s => s.trim())
+        .filter(Boolean),
+      epistemicMappings:   String(epistemicMappings || '')
+        .split(';')
+        .map(s => s.trim())
+        .filter(Boolean),
+      noveltyType:        (noveltyType as any)        || 'conventional',
+      functionType:       (functionType as any)       || 'structural',
+      status:             'under_review',
+      comments:           Array.isArray(comments)
+        ? comments.map((c: any) => c.toString())
+        : String(comments || '').split(';').map((c: string) => c.trim()).filter(Boolean),
+      createdBy:          new Types.ObjectId(userId),
+    });
+
+    // 6) Save, counting successes
+    try {
+      await am.save();
+      inserted++;
+    } catch {
+      // skip duplicates/validation errors
+    }
+  }
+
+  return { inserted };
+}
 }

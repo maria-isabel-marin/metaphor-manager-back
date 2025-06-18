@@ -14,33 +14,32 @@ export class AnnotatedMetaphor {
   @Prop({ required: true })
   expression: string;
 
-  @Prop({
-    type: {
-      section: { type: String },
-      subsection: { type: String },
-      page: { type: String },
-    },
-    required: true,
-  })
-  location: {
-    section: string;
-    subsection: string;
-    page: string;
-  };
+  // Campos de ubicación separados (antes "location")
+  @Prop({ type: String, required: true, default: 'undefined' })
+  section: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String })
+  subsection?: string;  // Opcional (no requerido)
+
+  @Prop({ type: String })
+  subsubsection?: string;  // Opcional (no requerido)
+
+  @Prop({ type: Number, required: true, default: 0 })
+  page: number;  // Numérico y requerido
+
+  @Prop({ required: true, default: 'unknow_word' })
   triggerWord: string;
 
-  @Prop({ required: true })
+  @Prop({ required: true, default: 'unknow_lemma' })
   lemma: string;
 
-  @Prop({ required: true })
+  @Prop({ required: true, default: 'undefined' })
   context: string;
 
-  @Prop({ required: true })
+  @Prop({ required: true, default: 'undefined' })
   literalMeaning: string;
 
-  @Prop({ required: true })
+  @Prop({ required: true, default: 'undefined' })
   contextualMeaning: string;
 
   @Prop({ type: Types.ObjectId, ref: 'Domain', required: true })
@@ -61,12 +60,14 @@ export class AnnotatedMetaphor {
   @Prop({
     required: true,
     enum: ['novel/creative', 'conventional', 'lexicalized', 'fossilized'],
+    default: 'conventional'
   })
   noveltyType: 'novel/creative' | 'conventional' | 'lexicalized' | 'fossilized';
 
   @Prop({
     required: true,
     enum: ['structural', 'ontological', 'orientational'],
+    default: 'structural'
   })
   functionType: 'structural' | 'ontological' | 'orientational';
 
@@ -84,5 +85,4 @@ export class AnnotatedMetaphor {
   createdBy: Types.ObjectId;
 }
 
-export const AnnotatedMetaphorSchema =
-  SchemaFactory.createForClass(AnnotatedMetaphor);
+export const AnnotatedMetaphorSchema = SchemaFactory.createForClass(AnnotatedMetaphor);

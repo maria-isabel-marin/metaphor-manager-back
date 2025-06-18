@@ -14,6 +14,22 @@ export class DomainsService {
     private readonly domainModel: Model<DomainDocument>,
   ) {}
 
+  async findOrCreate(name: string, type: 'source' | 'target'): Promise<DomainDocument> {
+    const filter = { name, type };
+    const existing = await this.domainModel.findOne(filter).exec();
+    if (existing) return existing;
+    try {
+      const created = new this.domainModel(filter);
+      return await created.save();
+    } catch (e: any) {
+      // In case of unique conflict (race), re-fetch
+      if (e.code === 11000) {
+        return (await this.domainModel.findOne(filter).exec())!;
+      }
+      throw e;
+    }
+  }
+
   async create(dto: CreateDomainDto): Promise<Domain> {
     const created = new this.domainModel(dto);
     return created.save();

@@ -12,10 +12,16 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFiles,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import {
+  FileFieldsInterceptor,
+  FileInterceptor,
+} from '@nestjs/platform-express';
 import * as multer from 'multer';
+
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { DocumentsService } from './documents.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
@@ -44,7 +50,7 @@ export class DocumentsController {
       ],
       {
         storage: multer.memoryStorage(),
-        limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB max
+        limits: { fileSize: 10 * 1024 * 1024 },
       },
     ),
   )
@@ -68,15 +74,43 @@ export class DocumentsController {
   }
 
   @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body() dto: UpdateDocumentDto,
-  ) {
+  update(@Param('id') id: string, @Body() dto: UpdateDocumentDto) {
     return this.service.update(id, dto);
   }
 
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.service.remove(id);
+  }
+
+  /** Upload an Excel of annotated metaphors */
+  @Post(':id/upload-annotations')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: multer.memoryStorage(),
+      limits: { fileSize: 20 * 1024 * 1024 },
+      fileFilter: (_req, file, cb) => {
+        if (!file.originalname.match(/\.(xlsx|xls)$/i)) {
+          return cb(
+            new BadRequestException('Only .xlsx or .xls files allowed'),
+            false,
+          );
+        }
+        cb(null, true);
+      },
+    }),
+  )
+  async uploadAnnotations(
+    @Req() req: any,
+    @Param('projectId') projectId: string,
+    @Param('id') documentId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const { inserted } = await this.service.uploadAnnotations(
+      documentId,
+      req.user._id,
+      file.buffer,
+    );
+    return { inserted };
   }
 }
