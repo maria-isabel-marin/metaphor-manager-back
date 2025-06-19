@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Document, Types, Schema as MongooseSchema } from 'mongoose';
 
 interface MetadataUpdate {
   timestamp: Date;
@@ -107,8 +107,8 @@ export class AnnotatedMetaphor {
     changes: {
       type: Map,
       of: {
-        before: Schema.Types.Mixed,
-        after: Schema.Types.Mixed
+        before: MongooseSchema.Types.Mixed,
+        after: MongooseSchema.Types.Mixed
       }
     }
   }], default: [] })
