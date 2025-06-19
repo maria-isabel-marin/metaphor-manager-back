@@ -14,6 +14,9 @@ export class Project {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   owner: Types.ObjectId;
 
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }], default: [] })
+  reviewers: Types.ObjectId[];
+
   @Prop({ required: true })
   contactEmail: string;
 

@@ -28,22 +28,25 @@ export class ProjectsController {
     return this.service.create({ ...dto, owner: ownerId });
   }
 
-  /** Lista solo los proyectos del usuario autenticado */
+  /** Lista los proyectos donde el usuario es owner o reviewer */
   @Get()
   async findAll(@Req() req: any) {
-    const ownerId = req.user._id.toString();
-    console.log(`Fetching projects for owner: ${ownerId}`);
-    if (!ownerId) {
-      throw new NotFoundException('Owner not found in request');
+    const userId = req.user._id.toString();
+    console.log(`Fetching projects for user: ${userId}`);
+    if (!userId) {
+      throw new NotFoundException('User not found in request');
     }
-    return this.service.findAll(ownerId);
+    return this.service.findAll(userId);
   }
 
-  /** Obtiene un proyecto por ID, solo si es propietario */
+  /** Obtiene un proyecto por ID, si es propietario o reviewer */
   @Get(':id')
   async findOne(@Req() req: any, @Param('id') id: string) {
     const project = await this.service.findOne(id);
-    if (project.owner.toString() !== req.user._id.toString()) {
+    const userId = req.user._id.toString();
+    
+    if (project.owner.toString() !== userId && 
+        !project.reviewers?.some(reviewer => reviewer.toString() === userId)) {
       throw new ForbiddenException('You do not have access to this project');
     }
     return project;
