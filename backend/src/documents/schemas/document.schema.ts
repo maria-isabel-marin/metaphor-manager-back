@@ -13,6 +13,9 @@ export class DocumentModel {
   @Prop({ required: true })
   title: string;
 
+  @Prop()
+  description?: string;
+
   @Prop({ required: true })
   type: string;
 

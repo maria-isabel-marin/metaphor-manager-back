@@ -11,6 +11,7 @@ import { DocumentsModule } from './documents/documents.module';
 import { AnnotatedMetaphorsModule } from './annotatedMetaphors/annotated-metaphors.module';
 import { DomainsModule } from './domains/domains.module';
 import { DomainRelationsModule } from './domainRelations/domain-relations.module';
+import { CommonModule } from './common/common.module';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -34,6 +35,7 @@ import { AppService } from './app.service';
     }),
 
     // 3) El resto de módulos de tu app
+    CommonModule,
     UsersModule,
     AuthModule,
     ProjectsModule,

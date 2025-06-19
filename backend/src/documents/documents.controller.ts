@@ -14,6 +14,7 @@ import {
   UploadedFiles,
   UploadedFile,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   FileFieldsInterceptor,
@@ -26,65 +27,99 @@ import { DocumentsService } from './documents.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 
-@Controller('projects/:projectId/documents')
+@Controller('documents')
 @UseGuards(JwtAuthGuard)
 export class DocumentsController {
   constructor(private readonly service: DocumentsService) {}
 
-  @Get()
-  findByProject(@Param('projectId') projectId: string) {
-    return this.service.findByProject(projectId);
+  @Get('project/:projectId')
+  async findByProject(@Param('projectId') projectId: string, @Req() req: any) {
+    return this.service.findByProject(projectId, {
+      _id: req.user._id.toString(),
+      email: req.user.email,
+    });
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.service.findOne(id);
+  async findOne(@Param('id') id: string, @Req() req: any) {
+    return this.service.findOne(id, {
+      _id: req.user._id.toString(),
+      email: req.user.email,
+    });
   }
 
   @Post()
   @UseInterceptors(
-    FileFieldsInterceptor(
-      [
-        { name: 'filePdf', maxCount: 1 },
-        { name: 'fileTxt', maxCount: 1 },
-      ],
-      {
-        storage: multer.memoryStorage(),
-        limits: { fileSize: 10 * 1024 * 1024 },
-      },
-    ),
+    FileFieldsInterceptor([
+      { name: 'pdf', maxCount: 1 },
+      { name: 'txt', maxCount: 1 },
+    ]),
   )
-  create(
-    @Req() req: any,
-    @Param('projectId') projectId: string,
+  async create(
     @Body() dto: CreateDocumentDto,
     @UploadedFiles()
     files: {
-      filePdf?: Express.Multer.File[];
-      fileTxt?: Express.Multer.File[];
+      pdf?: Express.Multer.File[];
+      txt?: Express.Multer.File[];
     },
+    @Req() req: any,
   ) {
-    return this.service.create({
-      ...dto,
-      projectId,
-      owner: req.user._id,
-      pdf: files.filePdf?.[0],
-      txt: files.fileTxt?.[0],
-    });
+    const userId = req.user._id.toString();
+    return this.service.create(
+      {
+        ...dto,
+        owner: userId,
+        pdf: files.pdf?.[0],
+        txt: files.txt?.[0],
+      },
+      {
+        _id: userId,
+        email: req.user.email,
+      },
+    );
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateDocumentDto) {
-    return this.service.update(id, dto);
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateDocumentDto,
+    @Req() req: any,
+  ) {
+    const document = await this.service.findOne(id, {
+      _id: req.user._id.toString(),
+      email: req.user.email,
+    });
+    
+    if (document.createdBy.toString() !== req.user._id.toString()) {
+      throw new ForbiddenException('You cannot edit this document');
+    }
+
+    return this.service.update(id, dto, {
+      _id: req.user._id.toString(),
+      email: req.user.email,
+    });
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.service.remove(id);
+  async remove(@Param('id') id: string, @Req() req: any) {
+    const document = await this.service.findOne(id, {
+      _id: req.user._id.toString(),
+      email: req.user.email,
+    });
+    
+    if (document.createdBy.toString() !== req.user._id.toString()) {
+      throw new ForbiddenException('You cannot delete this document');
+    }
+
+    await this.service.remove(id, {
+      _id: req.user._id.toString(),
+      email: req.user.email,
+    });
+    return { success: true };
   }
 
   /** Upload an Excel of annotated metaphors */
-  @Post(':id/upload-annotations')
+  @Post(':id/annotations')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: multer.memoryStorage(),
@@ -101,16 +136,22 @@ export class DocumentsController {
     }),
   )
   async uploadAnnotations(
-    @Req() req: any,
-    @Param('projectId') projectId: string,
-    @Param('id') documentId: string,
+    @Param('id') id: string,
     @UploadedFile() file: Express.Multer.File,
+    @Req() req: any,
   ) {
-    const { inserted } = await this.service.uploadAnnotations(
-      documentId,
-      req.user._id,
+    if (!file) {
+      throw new Error('No file uploaded');
+    }
+
+    return this.service.uploadAnnotations(
+      id,
+      req.user._id.toString(),
       file.buffer,
+      {
+        _id: req.user._id.toString(),
+        email: req.user.email,
+      },
     );
-    return { inserted };
   }
 }

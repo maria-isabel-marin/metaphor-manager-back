@@ -19,6 +19,7 @@ import {
 import { AnnotatedMetaphorsService } from '../annotatedMetaphors/annotated-metaphors.service'
 
 import { DomainsModule } from '../domains/domains.module'
+import { CommonModule } from '../common/common.module'
 
 @Module({
   imports: [
@@ -34,6 +35,9 @@ import { DomainsModule } from '../domains/domains.module'
 
     // DomainsModule to lookup/create domains by name
     DomainsModule,
+
+    // CommonModule for ActionLogService
+    CommonModule,
 
     // Multer (in-memory) so you can parse Excel uploads in your controller
     MulterModule.register({

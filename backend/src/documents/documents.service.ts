@@ -7,6 +7,8 @@ import * as XLSX from 'xlsx';
 
 import { Storage } from '@google-cloud/storage';
 import { DomainsService } from '../domains/domains.service';
+import { ActionLogService } from '../common/services/action-log.service';
+import { ActionType, EntityType } from '../common/schemas/action-log.schema';
 
 import { DocumentModel, DocumentDocument } from './schemas/document.schema';
 import {
@@ -15,6 +17,11 @@ import {
 } from '../annotatedMetaphors/schemas/annotated-metaphor.schema';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
+
+interface RequestUser {
+  _id: string;
+  email: string;
+}
 
 @Injectable()
 export class DocumentsService {
@@ -27,15 +34,30 @@ export class DocumentsService {
     @InjectModel(AnnotatedMetaphor.name)
     private readonly amModel: Model<AnnotatedMetaphorDocument>,
     private readonly domainsService: DomainsService,
+    private readonly actionLogService: ActionLogService,
   ) {}
 
   /** 1) List all documents under a project, returning signed URLs */
-  async findByProject(projectId: string): Promise<any[]> {
+  async findByProject(projectId: string, user: RequestUser): Promise<any[]> {
     const docs = await this.docModel
       .find({ projectId: new Types.ObjectId(projectId) })
       .exec();
 
     const bucket = this.storage.bucket(this.bucketName);
+
+    // Log the read action for each document
+    await Promise.all(
+      docs.map(doc =>
+        this.actionLogService.logAction({
+          action: ActionType.READ,
+          entityType: EntityType.DOCUMENT,
+          entityId: (doc._id as Types.ObjectId).toString(),
+          userId: user._id,
+          userEmail: user.email,
+          details: { title: doc.title, projectId },
+        })
+      )
+    );
 
     return Promise.all(
       docs.map(async (doc) => {
@@ -65,9 +87,20 @@ export class DocumentsService {
   }
 
   /** 2) Retrieve a single document */
-  async findOne(id: string): Promise<DocumentModel> {
+  async findOne(id: string, user: RequestUser): Promise<DocumentModel> {
     const doc = await this.docModel.findById(id).exec();
     if (!doc) throw new NotFoundException(`Document ${id} not found`);
+
+    // Log the read action
+    await this.actionLogService.logAction({
+      action: ActionType.READ,
+      entityType: EntityType.DOCUMENT,
+      entityId: (doc._id as Types.ObjectId).toString(),
+      userId: user._id,
+      userEmail: user.email,
+      details: { title: doc.title },
+    });
+
     return doc;
   }
 
@@ -79,6 +112,7 @@ export class DocumentsService {
       pdf?: Express.Multer.File;
       txt?: Express.Multer.File;
     },
+    user: RequestUser,
   ): Promise<DocumentModel> {
     const bucket = this.storage.bucket(this.bucketName);
     let gcsPathPdf: string | null = null;
@@ -98,32 +132,62 @@ export class DocumentsService {
         .save(data.txt.buffer, { contentType: data.txt.mimetype });
     }
 
-    const created = new this.docModel({
+    const created = await new this.docModel({
       ...data,
       projectId: new Types.ObjectId(data.projectId),
       createdBy: new Types.ObjectId(data.owner),
       gcsPathPdf,
       gcsPathTxt,
+    }).save();
+
+    // Log the create action
+    await this.actionLogService.logAction({
+      action: ActionType.CREATE,
+      entityType: EntityType.DOCUMENT,
+      entityId: (created._id as Types.ObjectId).toString(),
+      userId: user._id,
+      userEmail: user.email,
+      details: { title: created.title, projectId: data.projectId },
     });
 
-    return created.save();
+    return created;
   }
 
   /** 4) Update metadata */
-  async update(id: string, dto: UpdateDocumentDto): Promise<DocumentModel> {
+  async update(id: string, dto: UpdateDocumentDto, user: RequestUser): Promise<DocumentModel> {
     const updated = await this.docModel
       .findByIdAndUpdate(id, dto, { new: true })
       .exec();
     if (!updated) throw new NotFoundException(`Document ${id} not found`);
+
+    // Log the update action
+    await this.actionLogService.logAction({
+      action: ActionType.UPDATE,
+      entityType: EntityType.DOCUMENT,
+      entityId: (updated._id as Types.ObjectId).toString(),
+      userId: user._id,
+      userEmail: user.email,
+      details: { title: updated.title, changes: dto },
+    });
+
     return updated;
   }
 
   /** 5) Delete a document record (files remain in bucket) */
-  
-  async remove(id: string): Promise<void> {
+  async remove(id: string, user: RequestUser): Promise<void> {
     // 1) Fetch the doc to know its GCS paths
     const doc = await this.docModel.findById(id).exec();
     if (!doc) throw new NotFoundException(`Document ${id} not found`);
+
+    // Log the delete action before deleting
+    await this.actionLogService.logAction({
+      action: ActionType.DELETE,
+      entityType: EntityType.DOCUMENT,
+      entityId: (doc._id as Types.ObjectId).toString(),
+      userId: user._id,
+      userEmail: user.email,
+      details: { title: doc.title },
+    });
 
     const bucket = this.storage.bucket(this.bucketName);
 
@@ -147,102 +211,113 @@ export class DocumentsService {
   }
 
   async uploadAnnotations(
-  documentId: string,
-  userId: string,
-  buffer: Buffer,
-): Promise<{ inserted: number }> {
-  // 1) Load workbook & first sheet
-  const workbook  = XLSX.read(buffer,   { type: 'buffer' });
-  const sheetName = workbook.SheetNames[0];
-  const rows: any[] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
-    defval: '',       // fill missing cells with empty string
-    raw:   false,     // coerce to strings
-  });
-
-  let inserted = 0;
-
-  for (const row of rows) {
-    // 2) Destructure exactly your headers:
-    const {
-      customId,
-      section,
-      subsection,
-      subsubsection,
-      page,
-      expression,
-      context,
-      triggerWord,
-      lemma,
-      contextualMeaning,
-      literalMeaning,
-      conceptualMetaphor,
-      sourceDomain,
-      targetDomain,
-      ontologicalMappings,
-      epistemicMappings,
-      noveltyType,
-      comments,
-      functionType,
-    } = row;
-
-    // 3) Skip if no expression or no domains
-    if (!expression || !sourceDomain || !targetDomain) {
-      continue;
-    }
-
-    // 4) Upsert source/target domains
-    const src = await this.domainsService.findOrCreate(
-      sourceDomain,
-      'source',
-    );
-    const tgt = await this.domainsService.findOrCreate(
-      targetDomain,
-      'target',
-    );
-
-    // 5) Build new AnnotatedMetaphor document
-    const am = new this.amModel({
-      customId:           customId?.toString()       || new Types.ObjectId().toHexString(),
-      documentId:         new Types.ObjectId(documentId),
-      expression:         expression.toString(),
-      section:            section?.toString()        || 'undefined',
-      subsection:         subsection?.toString()     || undefined,
-      subsubsection:      subsubsection?.toString()  || undefined,
-      page:               Number(page)               || 0,
-      triggerWord:        triggerWord?.toString()    || 'unknown_word',
-      lemma:              lemma?.toString()          || 'unknown_lemma',
-      context:            context?.toString()        || 'undefined',
-      literalMeaning:     literalMeaning?.toString() || 'undefined',
-      contextualMeaning:  contextualMeaning?.toString() || 'undefined',
-      sourceDomain:       src._id,
-      targetDomain:       tgt._id,
-      conceptualMetaphor: conceptualMetaphor?.toString() || '',
-      ontologicalMappings: String(ontologicalMappings || '')
-        .split(';')
-        .map(s => s.trim())
-        .filter(Boolean),
-      epistemicMappings:   String(epistemicMappings || '')
-        .split(';')
-        .map(s => s.trim())
-        .filter(Boolean),
-      noveltyType:        (noveltyType as any)        || 'conventional',
-      functionType:       (functionType as any)       || 'structural',
-      status:             'under_review',
-      comments:           Array.isArray(comments)
-        ? comments.map((c: any) => c.toString())
-        : String(comments || '').split(';').map((c: string) => c.trim()).filter(Boolean),
-      createdBy:          new Types.ObjectId(userId),
+    documentId: string,
+    userId: string,
+    buffer: Buffer,
+    user: RequestUser,
+  ): Promise<{ inserted: number }> {
+    // 1) Load workbook & first sheet
+    const workbook  = XLSX.read(buffer,   { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const rows: any[] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
+      defval: '',       // fill missing cells with empty string
+      raw:   false,     // coerce to strings
     });
 
-    // 6) Save, counting successes
-    try {
-      await am.save();
-      inserted++;
-    } catch {
-      // skip duplicates/validation errors
-    }
-  }
+    let inserted = 0;
 
-  return { inserted };
-}
+    for (const row of rows) {
+      // 2) Destructure exactly your headers:
+      const {
+        customId,
+        section,
+        subsection,
+        subsubsection,
+        page,
+        expression,
+        context,
+        triggerWord,
+        lemma,
+        contextualMeaning,
+        literalMeaning,
+        conceptualMetaphor,
+        sourceDomain,
+        targetDomain,
+        ontologicalMappings,
+        epistemicMappings,
+        noveltyType,
+        comments,
+        functionType,
+      } = row;
+
+      // 3) Skip if no expression or no domains
+      if (!expression || !sourceDomain || !targetDomain) {
+        continue;
+      }
+
+      // 4) Upsert source/target domains
+      const src = await this.domainsService.findOrCreate(
+        sourceDomain,
+        'source',
+      );
+      const tgt = await this.domainsService.findOrCreate(
+        targetDomain,
+        'target',
+      );
+
+      // 5) Build new AnnotatedMetaphor document
+      const am = new this.amModel({
+        customId:           customId?.toString()       || new Types.ObjectId().toHexString(),
+        documentId:         new Types.ObjectId(documentId),
+        expression:         expression.toString(),
+        section:            section?.toString()        || 'undefined',
+        subsection:         subsection?.toString()     || undefined,
+        subsubsection:      subsubsection?.toString()  || undefined,
+        page:               Number(page)               || 0,
+        triggerWord:        triggerWord?.toString()    || 'unknown_word',
+        lemma:              lemma?.toString()          || 'unknown_lemma',
+        context:            context?.toString()        || 'undefined',
+        literalMeaning:     literalMeaning?.toString() || 'undefined',
+        contextualMeaning:  contextualMeaning?.toString() || 'undefined',
+        sourceDomain:       src._id,
+        targetDomain:       tgt._id,
+        conceptualMetaphor: conceptualMetaphor?.toString() || '',
+        ontologicalMappings: String(ontologicalMappings || '')
+          .split(';')
+          .map(s => s.trim())
+          .filter(Boolean),
+        epistemicMappings:   String(epistemicMappings || '')
+          .split(';')
+          .map(s => s.trim())
+          .filter(Boolean),
+        noveltyType:        (noveltyType as any)        || 'conventional',
+        functionType:       (functionType as any)       || 'structural',
+        status:             'under_review',
+        comments:           Array.isArray(comments)
+          ? comments.map((c: any) => c.toString())
+          : String(comments || '').split(';').map((c: string) => c.trim()).filter(Boolean),
+        createdBy:          new Types.ObjectId(userId),
+      });
+
+      // 6) Save, counting successes
+      try {
+        await am.save();
+        inserted++;
+      } catch {
+        // skip duplicates/validation errors
+      }
+    }
+
+    // Log the action
+    await this.actionLogService.logAction({
+      action: ActionType.CREATE,
+      entityType: EntityType.ANNOTATION,
+      entityId: documentId, // Using document ID as entity ID
+      userId: user._id,
+      userEmail: user.email,
+      details: { documentId, insertedCount: inserted },
+    });
+
+    return { inserted };
+  }
 }

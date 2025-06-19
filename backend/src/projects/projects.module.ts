@@ -6,11 +6,13 @@ import { ProjectsService } from './projects.service';
 import { ProjectsController } from './projects.controller';
 import { Project, ProjectSchema } from './schemas/project.schema';
 import { UsersModule } from '../users/users.module';
+import { CommonModule } from '../common/common.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Project.name, schema: ProjectSchema }]),
     UsersModule,
+    CommonModule,
   ],
   controllers: [ProjectsController],
   providers: [ProjectsService],

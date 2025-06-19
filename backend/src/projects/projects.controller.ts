@@ -25,7 +25,10 @@ export class ProjectsController {
   @Post()
   async create(@Req() req: any, @Body() dto: CreateProjectDto) {
     const ownerId = req.user._id.toString();
-    return this.service.create({ ...dto, owner: ownerId });
+    return this.service.create({ ...dto, owner: ownerId }, {
+      _id: ownerId,
+      email: req.user.email,
+    });
   }
 
   /** Lista los proyectos donde el usuario es owner o reviewer */
@@ -36,13 +39,19 @@ export class ProjectsController {
     if (!userId) {
       throw new NotFoundException('User not found in request');
     }
-    return this.service.findAll(userId);
+    return this.service.findAll(userId, {
+      _id: userId,
+      email: req.user.email,
+    });
   }
 
   /** Obtiene un proyecto por ID, si es propietario o reviewer */
   @Get(':id')
   async findOne(@Req() req: any, @Param('id') id: string) {
-    const project = await this.service.findOne(id);
+    const project = await this.service.findOne(id, {
+      _id: req.user._id.toString(),
+      email: req.user.email,
+    });
     const userId = req.user._id.toString();
     
     if (project.owner.toString() !== userId && 
@@ -59,21 +68,33 @@ export class ProjectsController {
     @Param('id') id: string,
     @Body() dto: UpdateProjectDto,
   ) {
-    const project = await this.service.findOne(id);
-    if (project.owner.toString() !== req.user._id.toString()) {
+    const project = await this.service.findOne(id, {
+      _id: req.user._id.toString(),
+      email: req.user.email,
+    });
+    if (project.owner._id.toString() !== req.user._id.toString()) {
       throw new ForbiddenException('You cannot edit this project');
     }
-    return this.service.update(id, dto);
+    return this.service.update(id, dto, {
+      _id: req.user._id.toString(),
+      email: req.user.email,
+    });
   }
 
   /** Elimina un proyecto, solo si es propietario */
   @Delete(':id')
   async remove(@Req() req: any, @Param('id') id: string) {
-    const project = await this.service.findOne(id);
-    if (project.owner.toString() !== req.user._id.toString()) {
+    const project = await this.service.findOne(id, {
+      _id: req.user._id.toString(),
+      email: req.user.email,
+    });
+    if (project.owner._id.toString() !== req.user._id.toString()) {
       throw new ForbiddenException('You cannot delete this project');
     }
-    await this.service.remove(id);
+    await this.service.remove(id, {
+      _id: req.user._id.toString(),
+      email: req.user.email,
+    });
     return { success: true };
   }
 }

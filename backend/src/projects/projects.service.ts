@@ -6,9 +6,16 @@ import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { UsersService } from '../users/users.service';
 import { User, UserDocument } from '../users/schemas/user.schema';
+import { ActionLogService } from '../common/services/action-log.service';
+import { ActionType, EntityType } from '../common/schemas/action-log.schema';
 
 interface UserWithId {
   _id: Types.ObjectId;
+}
+
+interface RequestUser {
+  _id: string;
+  email: string;
 }
 
 @Injectable()
@@ -17,10 +24,11 @@ export class ProjectsService {
     @InjectModel(Project.name)
     private readonly projectModel: Model<ProjectDocument>,
     private readonly usersService: UsersService,
+    private readonly actionLogService: ActionLogService,
   ) {}
 
   /** Crea un proyecto vinculando owner y reviewers como ObjectId */
-  async create(dto: CreateProjectDto & { owner: string }): Promise<Project> {
+  async create(dto: CreateProjectDto & { owner: string }, user: RequestUser): Promise<Project> {
     // Buscar los usuarios por email para los reviewers
     let reviewerIds: Types.ObjectId[] = [];
     if (dto.reviewerEmails?.length) {
@@ -34,16 +42,27 @@ export class ProjectsService {
       reviewerIds = reviewers.map(user => user._id);
     }
 
-    const created = new this.projectModel({
+    const created = await new this.projectModel({
       ...dto,
       owner: new Types.ObjectId(dto.owner),
       reviewers: reviewerIds,
+    }).save();
+
+    // Log the create action
+    await this.actionLogService.logAction({
+      action: ActionType.CREATE,
+      entityType: EntityType.PROJECT,
+      entityId: (created._id as Types.ObjectId).toString(),
+      userId: user._id,
+      userEmail: user.email,
+      details: { name: created.name },
     });
-    return created.save();
+
+    return created;
   }
 
   /** Lista proyectos donde el usuario es owner o reviewer */
-  async findAll(userId: string): Promise<{ owned: Project[], reviewing: Project[] }> {
+  async findAll(userId: string, user: RequestUser): Promise<{ owned: Project[], reviewing: Project[] }> {
     const userObjectId = new Types.ObjectId(userId);
     
     const [owned, reviewing] = await Promise.all([
@@ -57,11 +76,35 @@ export class ProjectsService {
         .exec()
     ]);
 
+    // Log the read action for each project
+    await Promise.all([
+      ...owned.map(project => 
+        this.actionLogService.logAction({
+          action: ActionType.READ,
+          entityType: EntityType.PROJECT,
+          entityId: (project._id as Types.ObjectId).toString(),
+          userId: user._id,
+          userEmail: user.email,
+          details: { name: project.name, as: 'owner' },
+        })
+      ),
+      ...reviewing.map(project =>
+        this.actionLogService.logAction({
+          action: ActionType.READ,
+          entityType: EntityType.PROJECT,
+          entityId: (project._id as Types.ObjectId).toString(),
+          userId: user._id,
+          userEmail: user.email,
+          details: { name: project.name, as: 'reviewer' },
+        })
+      )
+    ]);
+
     return { owned, reviewing };
   }
 
   /** Busca un proyecto por ID, lanza 404 si no existe */
-  async findOne(id: string): Promise<Project> {
+  async findOne(id: string, user: RequestUser): Promise<Project> {
     const project = await this.projectModel
       .findById(id)
       .populate('owner', 'email name')
@@ -71,6 +114,17 @@ export class ProjectsService {
     if (!project) {
       throw new NotFoundException(`Project with id ${id} not found`);
     }
+
+    // Log the read action
+    await this.actionLogService.logAction({
+      action: ActionType.READ,
+      entityType: EntityType.PROJECT,
+      entityId: (project._id as Types.ObjectId).toString(),
+      userId: user._id,
+      userEmail: user.email,
+      details: { name: project.name },
+    });
+
     return project;
   }
 
@@ -78,6 +132,7 @@ export class ProjectsService {
   async update(
     id: string,
     dto: UpdateProjectDto,
+    user: RequestUser,
   ): Promise<Project> {
     const updateData: any = { ...dto };
 
@@ -102,14 +157,37 @@ export class ProjectsService {
     if (!updated) {
       throw new NotFoundException(`Project with id ${id} not found`);
     }
+
+    // Log the update action
+    await this.actionLogService.logAction({
+      action: ActionType.UPDATE,
+      entityType: EntityType.PROJECT,
+      entityId: (updated._id as Types.ObjectId).toString(),
+      userId: user._id,
+      userEmail: user.email,
+      details: { name: updated.name, changes: dto },
+    });
+
     return updated;
   }
 
   /** Elimina un proyecto por ID */
-  async remove(id: string): Promise<void> {
-    const result = await this.projectModel.findByIdAndDelete(id).exec();
-    if (!result) {
+  async remove(id: string, user: RequestUser): Promise<void> {
+    const project = await this.projectModel.findById(id).exec();
+    if (!project) {
       throw new NotFoundException(`Project with id ${id} not found`);
     }
+
+    // Log the delete action before deleting
+    await this.actionLogService.logAction({
+      action: ActionType.DELETE,
+      entityType: EntityType.PROJECT,
+      entityId: (project._id as Types.ObjectId).toString(),
+      userId: user._id,
+      userEmail: user.email,
+      details: { name: project.name },
+    });
+
+    await project.deleteOne();
   }
 }
