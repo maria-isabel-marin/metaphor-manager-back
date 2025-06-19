@@ -87,29 +87,30 @@ export class AnnotatedMetaphorsController {
   updateOne(
     @Param('id') id: string,
     @Body() updates: any /* ideally a DTO for partial updates */,
+    @Req() req: JwtRequest,
   ) {
-    return this.svc.updateOne(id, updates);
+    return this.svc.updateOne(id, updates, req.user._id);
   }
 
   /** 4) Quick state-transitions */
   @Patch(':id/approve')
-  approve(@Param('id') id: string) {
-    return this.svc.updateOne(id, { status: 'approved' });
+  approve(@Param('id') id: string, @Req() req: JwtRequest) {
+    return this.svc.updateOne(id, { status: 'approved' }, req.user._id);
   }
 
   @Patch(':id/to-edit')
-  markAsToEdit(@Param('id') id: string) {
-    return this.svc.updateOne(id, { status: 'to_edit' });
+  markAsToEdit(@Param('id') id: string, @Req() req: JwtRequest) {
+    return this.svc.updateOne(id, { status: 'to_edit' }, req.user._id);
   }
 
   @Patch(':id/discard')
-  discard(@Param('id') id: string) {
-    return this.svc.updateOne(id, { status: 'discarded' });
+  discard(@Param('id') id: string, @Req() req: JwtRequest) {
+    return this.svc.updateOne(id, { status: 'discarded' }, req.user._id);
   }
 
   @Patch(':id/metonymy')
-  markAsMetonymy(@Param('id') id: string) {
-    return this.svc.updateOne(id, { status: 'metonymy' });
+  markAsMetonymy(@Param('id') id: string, @Req() req: JwtRequest) {
+    return this.svc.updateOne(id, { status: 'metonymy' }, req.user._id);
   }
 
   /** 5) Bulk state change (editor only) */

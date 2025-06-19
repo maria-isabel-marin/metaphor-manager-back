@@ -1,6 +1,21 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
+interface MetadataUpdate {
+  timestamp: Date;
+  user: string;
+}
+
+interface FieldChange {
+  before: any;
+  after: any;
+}
+
+interface Update {
+  metadata: MetadataUpdate;
+  changes: Record<string, FieldChange>;
+}
+
 export type AnnotatedMetaphorDocument = AnnotatedMetaphor & Document;
 
 @Schema({ collection: 'annotated_metaphors', timestamps: true })
@@ -83,6 +98,21 @@ export class AnnotatedMetaphor {
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   createdBy: Types.ObjectId;
+
+  @Prop({ type: [{ 
+    metadata: {
+      timestamp: { type: Date, required: true },
+      user: { type: String, required: true }
+    },
+    changes: {
+      type: Map,
+      of: {
+        before: Schema.Types.Mixed,
+        after: Schema.Types.Mixed
+      }
+    }
+  }], default: [] })
+  updates: Update[];
 }
 
 export const AnnotatedMetaphorSchema = SchemaFactory.createForClass(AnnotatedMetaphor);

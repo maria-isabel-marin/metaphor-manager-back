@@ -183,11 +183,41 @@ export class AnnotatedMetaphorsService {
   async updateOne(
     id: string,
     updates: Partial<Omit<AnnotatedMetaphor, 'createdBy' | 'documentId'>>,
+    userId: string
   ) {
+    // Get the current state
+    const current = await this.metaphorModel.findById(id).exec();
+    if (!current) throw new NotFoundException(`AnnotatedMetaphor ${id} not found`);
+
+    // Track changes
+    const changes: Record<string, { before: any; after: any }> = {};
+    for (const [key, value] of Object.entries(updates)) {
+      if (key === 'updates') continue; // Skip the updates field itself
+      if (JSON.stringify(current[key]) !== JSON.stringify(value)) {
+        changes[key] = {
+          before: current[key],
+          after: value
+        };
+      }
+    }
+
+    // If there are changes, add to updates array
+    if (Object.keys(changes).length > 0) {
+      const update = {
+        metadata: {
+          timestamp: new Date(),
+          user: userId
+        },
+        changes
+      };
+
+      updates['$push'] = { updates: update };
+    }
+
     const updated = await this.metaphorModel
       .findByIdAndUpdate(id, updates, { new: true })
       .exec();
-    if (!updated) throw new NotFoundException(`AnnotatedMetaphor ${id} not found`);
+    
     return updated;
   }
 
