@@ -287,9 +287,19 @@ export class AnnotatedMetaphorsService {
     const current = await this.metaphorModel.findById(id).exec();
     if (!current) throw new NotFoundException(`AnnotatedMetaphor ${id} not found`);
 
+    // Convert string ObjectIDs to Types.ObjectId for fields that require it
+    const processedUpdates: any = { ...updates };
+    const objectIdFields = ['pos', 'sourceDomain', 'targetDomain'];
+    
+    for (const field of objectIdFields) {
+      if (processedUpdates[field] && typeof processedUpdates[field] === 'string') {
+        processedUpdates[field] = new Types.ObjectId(processedUpdates[field]);
+      }
+    }
+
     // Track changes
     const changes: Record<string, { before: any; after: any }> = {};
-    for (const [key, value] of Object.entries(updates)) {
+    for (const [key, value] of Object.entries(processedUpdates)) {
       if (key === 'updates') continue; // Skip the updates field itself
       if (JSON.stringify(current[key]) !== JSON.stringify(value)) {
         changes[key] = {
@@ -309,11 +319,11 @@ export class AnnotatedMetaphorsService {
         changes
       };
 
-      updates['$push'] = { updates: update };
+      processedUpdates['$push'] = { updates: update };
     }
 
     const updated = await this.metaphorModel
-      .findByIdAndUpdate(id, updates, { new: true })
+      .findByIdAndUpdate(id, processedUpdates, { new: true })
       .exec();
     
     return updated;
@@ -332,6 +342,11 @@ export class AnnotatedMetaphorsService {
       matched: res.matchedCount ?? 0,
       modified: res.modifiedCount ?? 0,
     };
+  }
+
+  /** get all POS entries */
+  async getAllPOS() {
+    return this.posService.findAll();
   }
 
 }

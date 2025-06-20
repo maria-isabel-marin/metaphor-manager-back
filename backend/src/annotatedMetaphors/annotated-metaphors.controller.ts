@@ -146,5 +146,11 @@ export class AnnotatedMetaphorsController {
     return this.svc.bulkImportFromExcel(file, docId, req.user._id);
   }
 
+  /** 8) Get all POS entries */
+  @Get('pos/all')
+  getAllPOS() {
+    return this.svc.getAllPOS();
+  }
+
   
 }
