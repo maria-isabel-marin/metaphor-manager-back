@@ -3,7 +3,7 @@ import { Document, Types } from 'mongoose';
 
 export type ProjectDocument = Project & Document;
 
-@Schema({ collection: 'projects' , timestamps: true })
+@Schema({ collection: 'projects', timestamps: true })
 export class Project {
   @Prop({ required: true })
   name: string;

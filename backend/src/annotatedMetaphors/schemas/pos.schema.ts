@@ -9,4 +9,4 @@ export class POS {
   name: string;
 }
 
-export const POSSchema = SchemaFactory.createForClass(POS); 
+export const POSSchema = SchemaFactory.createForClass(POS);

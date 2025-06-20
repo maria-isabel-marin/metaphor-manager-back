@@ -1,12 +1,6 @@
 // backend/src/auth/auth.controller.ts
 
-import {
-  Controller,
-  Get,
-  Req,
-  Res,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Req, Res, UseGuards } from '@nestjs/common';
 import { Response, Request } from 'express';
 import { AuthService } from './auth.service';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
@@ -39,7 +33,9 @@ export class AuthController {
   async googleAuthRedirect(@Req() req: any, @Res() res: Response) {
     const { accessToken } = req.user as { accessToken: string };
     // Redirigir al frontend con el token
-    return res.redirect(`http://localhost:3001/auth/success?token=${accessToken}`);
+    return res.redirect(
+      `http://localhost:3001/auth/success?token=${accessToken}`,
+    );
   }
 
   /** 3) Ruta de prueba protegida */

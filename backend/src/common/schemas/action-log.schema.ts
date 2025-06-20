@@ -7,13 +7,13 @@ export enum ActionType {
   CREATE = 'CREATE',
   READ = 'READ',
   UPDATE = 'UPDATE',
-  DELETE = 'DELETE'
+  DELETE = 'DELETE',
 }
 
 export enum EntityType {
   PROJECT = 'PROJECT',
   DOCUMENT = 'DOCUMENT',
-  ANNOTATION = 'ANNOTATION'
+  ANNOTATION = 'ANNOTATION',
 }
 
 @Schema({ timestamps: true })
@@ -37,4 +37,4 @@ export class ActionLog {
   details?: Record<string, any>;
 }
 
-export const ActionLogSchema = SchemaFactory.createForClass(ActionLog); 
+export const ActionLogSchema = SchemaFactory.createForClass(ActionLog);

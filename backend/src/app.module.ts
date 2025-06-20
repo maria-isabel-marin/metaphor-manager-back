@@ -23,8 +23,8 @@ import { AppService } from './app.service';
 
     // 2) Conecta a Mongo usando async factory que lee ConfigService
     MongooseModule.forRootAsync({
-      imports: [ConfigModule],           // importar el módulo global de config
-      inject: [ConfigService],           // inyectar ConfigService
+      imports: [ConfigModule], // importar el módulo global de config
+      inject: [ConfigService], // inyectar ConfigService
       useFactory: (cfg: ConfigService): MongooseModuleOptions => {
         const uri = cfg.get<string>('MONGODB_URI');
         if (!uri) {

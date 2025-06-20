@@ -14,7 +14,10 @@ export class DomainsService {
     private readonly domainModel: Model<DomainDocument>,
   ) {}
 
-  async findOrCreate(name: string, type: 'source' | 'target'): Promise<DomainDocument> {
+  async findOrCreate(
+    name: string,
+    type: 'source' | 'target',
+  ): Promise<DomainDocument> {
     const filter = { name, type };
     const existing = await this.domainModel.findOne(filter).exec();
     if (existing) return existing;

@@ -34,7 +34,7 @@ export class AnnotatedMetaphor {
   section: string;
 
   @Prop({ type: String })
-  subsection?: string;  // Opcional (no requerido)
+  subsection?: string; // Opcional (no requerido)
 
   @Prop({ type: String })
   subsection3?: string;
@@ -93,14 +93,14 @@ export class AnnotatedMetaphor {
   @Prop({
     required: true,
     enum: ['novel/creative', 'conventional', 'lexicalized', 'fossilized'],
-    default: 'conventional'
+    default: 'conventional',
   })
   noveltyType: 'novel/creative' | 'conventional' | 'lexicalized' | 'fossilized';
 
   @Prop({
     required: true,
     enum: ['structural', 'ontological', 'orientational'],
-    default: 'structural'
+    default: 'structural',
   })
   functionType: 'structural' | 'ontological' | 'orientational';
 
@@ -117,20 +117,26 @@ export class AnnotatedMetaphor {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   createdBy: Types.ObjectId;
 
-  @Prop({ type: [{ 
-    metadata: {
-      timestamp: { type: Date, required: true },
-      user: { type: String, required: true }
-    },
-    changes: {
-      type: Map,
-      of: {
-        before: MongooseSchema.Types.Mixed,
-        after: MongooseSchema.Types.Mixed
-      }
-    }
-  }], default: [] })
+  @Prop({
+    type: [
+      {
+        metadata: {
+          timestamp: { type: Date, required: true },
+          user: { type: String, required: true },
+        },
+        changes: {
+          type: Map,
+          of: {
+            before: MongooseSchema.Types.Mixed,
+            after: MongooseSchema.Types.Mixed,
+          },
+        },
+      },
+    ],
+    default: [],
+  })
   updates: Update[];
 }
 
-export const AnnotatedMetaphorSchema = SchemaFactory.createForClass(AnnotatedMetaphor);
+export const AnnotatedMetaphorSchema =
+  SchemaFactory.createForClass(AnnotatedMetaphor);

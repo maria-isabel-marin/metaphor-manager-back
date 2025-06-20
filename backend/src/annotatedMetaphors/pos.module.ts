@@ -8,4 +8,4 @@ import { POSService } from './pos.service';
   providers: [POSService],
   exports: [POSService],
 })
-export class PosModule {} 
+export class PosModule {}

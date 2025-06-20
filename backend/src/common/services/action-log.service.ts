@@ -1,7 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { ActionLog, ActionLogDocument, ActionType, EntityType } from '../schemas/action-log.schema';
+import {
+  ActionLog,
+  ActionLogDocument,
+  ActionType,
+  EntityType,
+} from '../schemas/action-log.schema';
 
 interface LogActionParams {
   action: ActionType;
@@ -60,4 +65,4 @@ export class ActionLogService {
       .sort({ createdAt: -1 })
       .exec();
   }
-} 
+}

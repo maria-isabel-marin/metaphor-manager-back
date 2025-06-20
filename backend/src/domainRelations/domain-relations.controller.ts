@@ -15,9 +15,7 @@ import { UpdateDomainRelationDto } from './dto/update-domain-relation.dto';
 
 @Controller('domain-relations')
 export class DomainRelationsController {
-  constructor(
-    private readonly service: DomainRelationsService,
-  ) {}
+  constructor(private readonly service: DomainRelationsService) {}
 
   @Post()
   create(@Body() dto: CreateDomainRelationDto) {
@@ -35,10 +33,7 @@ export class DomainRelationsController {
   }
 
   @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body() dto: UpdateDomainRelationDto,
-  ) {
+  update(@Param('id') id: string, @Body() dto: UpdateDomainRelationDto) {
     return this.service.update(id, dto);
   }
 

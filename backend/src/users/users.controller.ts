@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Body, Param, Patch, Delete, UseGuards, Req, NotFoundException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Patch,
+  Delete,
+  UseGuards,
+  Req,
+  NotFoundException,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -42,8 +53,14 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard)
   @Patch('me/column-preferences')
-  async updateColumnPreferences(@Req() req: any, @Body() prefs: Record<string, any>) {
-    const updated = await this.usersService.updateColumnPreferences(req.user._id, prefs);
+  async updateColumnPreferences(
+    @Req() req: any,
+    @Body() prefs: Record<string, any>,
+  ) {
+    const updated = await this.usersService.updateColumnPreferences(
+      req.user._id,
+      prefs,
+    );
     if (!updated) throw new NotFoundException('User not found');
     return updated.columnPreferences;
   }

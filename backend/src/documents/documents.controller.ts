@@ -15,9 +15,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
-import {
-  FileInterceptor,
-} from '@nestjs/platform-express';
+import { FileInterceptor } from '@nestjs/platform-express';
 import * as multer from 'multer';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -53,6 +51,10 @@ export class DocumentsController {
     @UploadedFile() file: Express.Multer.File,
     @Req() req: any,
   ) {
+    if (!file) {
+      throw new BadRequestException('File is required');
+    }
+
     const userId = req.user._id.toString();
     return this.service.create(
       {
@@ -68,21 +70,23 @@ export class DocumentsController {
   }
 
   @Patch(':id')
+  @UseInterceptors(FileInterceptor('file'))
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateDocumentDto,
+    @UploadedFile() file: Express.Multer.File,
     @Req() req: any,
   ) {
     const document = await this.service.findOne(id, {
       _id: req.user._id.toString(),
       email: req.user.email,
     });
-    
+
     if (document.createdBy.toString() !== req.user._id.toString()) {
       throw new ForbiddenException('You cannot edit this document');
     }
 
-    return this.service.update(id, dto, {
+    return this.service.update(id, dto, file, {
       _id: req.user._id.toString(),
       email: req.user.email,
     });
@@ -94,7 +98,7 @@ export class DocumentsController {
       _id: req.user._id.toString(),
       email: req.user.email,
     });
-    
+
     if (document.createdBy.toString() !== req.user._id.toString()) {
       throw new ForbiddenException('You cannot delete this document');
     }

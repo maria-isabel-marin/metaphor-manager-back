@@ -33,10 +33,7 @@ export class DomainsController {
   }
 
   @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body() dto: UpdateDomainDto,
-  ) {
+  update(@Param('id') id: string, @Body() dto: UpdateDomainDto) {
     return this.domainsService.update(id, dto);
   }
 

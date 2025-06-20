@@ -17,9 +17,7 @@ export class DomainRelationsService {
     private readonly relationModel: Model<DomainRelationDocument>,
   ) {}
 
-  async create(
-    dto: CreateDomainRelationDto,
-  ): Promise<DomainRelation> {
+  async create(dto: CreateDomainRelationDto): Promise<DomainRelation> {
     const created = new this.relationModel(dto);
     return created.save();
   }

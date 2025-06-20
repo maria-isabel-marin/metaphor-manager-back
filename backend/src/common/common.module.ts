@@ -12,4 +12,4 @@ import { ActionLogService } from './services/action-log.service';
   providers: [ActionLogService],
   exports: [ActionLogService],
 })
-export class CommonModule {} 
+export class CommonModule {}

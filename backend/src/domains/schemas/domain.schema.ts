@@ -3,18 +3,18 @@ import { Document } from 'mongoose';
 
 export type DomainDocument = Domain & Document;
 
-@Schema({ 
+@Schema({
   collection: 'domains',
   timestamps: true,
 })
 export class Domain {
-  @Prop({ required: true }) 
+  @Prop({ required: true })
   name: string;
 
-  @Prop({ 
-    required: true, 
-    enum: ['source', 'target' ] 
-  })  
+  @Prop({
+    required: true,
+    enum: ['source', 'target'],
+  })
   type: 'source' | 'target';
 }
 

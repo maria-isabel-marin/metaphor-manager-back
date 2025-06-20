@@ -36,7 +36,7 @@ export class CreateAnnotatedMetaphorDto {
   @IsString()
   @IsOptional()
   subsection4?: string;
-  
+
   @IsString()
   @IsOptional()
   subsection5?: string;
@@ -52,7 +52,7 @@ export class CreateAnnotatedMetaphorDto {
   @IsString()
   @IsOptional()
   triggerWord?: string;
-  
+
   @IsString()
   @IsOptional()
   triggerWordLoc?: string;
@@ -101,7 +101,11 @@ export class CreateAnnotatedMetaphorDto {
 
   @IsEnum(['novel/creative', 'conventional', 'lexicalized', 'fossilized'])
   @IsOptional()
-  noveltyType?: 'novel/creative' | 'conventional' | 'lexicalized' | 'fossilized';
+  noveltyType?:
+    | 'novel/creative'
+    | 'conventional'
+    | 'lexicalized'
+    | 'fossilized';
 
   @IsEnum(['structural', 'ontological', 'orientational'])
   @IsOptional()

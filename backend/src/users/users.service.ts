@@ -1,4 +1,8 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { User, UserDocument } from './schemas/user.schema';
@@ -14,7 +18,9 @@ export class UsersService {
 
   // Ahora devuelve Promise<UserDocument>
   async create(createUserDto: CreateUserDto): Promise<UserDocument> {
-    const existing = await this.userModel.findOne({ email: createUserDto.email }).exec();
+    const existing = await this.userModel
+      .findOne({ email: createUserDto.email })
+      .exec();
     if (existing) {
       throw new ConflictException('Email already in use');
     }
@@ -40,7 +46,10 @@ export class UsersService {
     return this.userModel.findOne({ googleId }).exec();
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto): Promise<UserDocument> {
+  async update(
+    id: string,
+    updateUserDto: UpdateUserDto,
+  ): Promise<UserDocument> {
     const updated = await this.userModel
       .findByIdAndUpdate(id, updateUserDto, { new: true })
       .exec();
@@ -54,10 +63,12 @@ export class UsersService {
   }
 
   async updateColumnPreferences(userId: string, prefs: Record<string, any>) {
-    return this.userModel.findByIdAndUpdate(
-      userId,
-      { $set: { columnPreferences: prefs } },
-      { new: true }
-    ).exec();
+    return this.userModel
+      .findByIdAndUpdate(
+        userId,
+        { $set: { columnPreferences: prefs } },
+        { new: true },
+      )
+      .exec();
   }
 }

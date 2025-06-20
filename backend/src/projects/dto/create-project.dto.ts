@@ -1,6 +1,12 @@
 // File: src/projects/dto/create-project.dto.ts
 
-import { IsString, IsMongoId, IsEmail, IsOptional, IsArray } from 'class-validator';
+import {
+  IsString,
+  IsMongoId,
+  IsEmail,
+  IsOptional,
+  IsArray,
+} from 'class-validator';
 
 export class CreateProjectDto {
   @IsString() name: string;

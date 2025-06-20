@@ -3,8 +3,8 @@ import { IsString, IsEmail, IsEnum, IsOptional } from 'class-validator';
 
 export class CreateUserDto {
   @IsString() name: string;
-  @IsEmail()  email: string;
-  @IsEnum(['editor','reviewer']) role: 'editor'|'reviewer';
+  @IsEmail() email: string;
+  @IsEnum(['editor', 'reviewer']) role: 'editor' | 'reviewer';
 
   @IsOptional()
   @IsString()
@@ -14,4 +14,3 @@ export class CreateUserDto {
   @IsString()
   avatar?: string;
 }
-

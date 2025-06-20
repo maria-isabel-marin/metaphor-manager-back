@@ -1,8 +1,9 @@
 // backend/src/documents/dto/create-document.dto.ts
-import { IsString, IsOptional, IsMongoId } from 'class-validator';
+import { IsString, IsOptional, IsMongoId, IsNotEmpty } from 'class-validator';
 
 export class CreateDocumentDto {
   @IsString()
+  @IsNotEmpty()
   title: string;
 
   @IsString()
@@ -10,9 +11,11 @@ export class CreateDocumentDto {
   description?: string;
 
   @IsString()
+  @IsNotEmpty()
   type: string;
 
   @IsString()
+  @IsNotEmpty()
   language: string;
 
   @IsString()

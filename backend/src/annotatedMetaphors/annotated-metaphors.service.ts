@@ -1,9 +1,16 @@
 // File: src/annotatedMetaphors/annotated-metaphors.service.ts
 
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { AnnotatedMetaphor, AnnotatedMetaphorDocument } from './schemas/annotated-metaphor.schema';
+import {
+  AnnotatedMetaphor,
+  AnnotatedMetaphorDocument,
+} from './schemas/annotated-metaphor.schema';
 import { CreateAnnotatedMetaphorDto } from './dto/create-annotated-metaphor.dto';
 import { UpdateAnnotatedMetaphorDto } from './dto/update-annotated-metaphor.dto';
 import * as ExcelJS from 'exceljs';
@@ -23,7 +30,7 @@ export class AnnotatedMetaphorsService {
     private readonly metaphorModel: Model<AnnotatedMetaphorDocument>,
     private readonly domainsService: DomainsService,
     private readonly posService: POSService,
-  ) { }
+  ) {}
 
   async bulkImportFromExcel(
     file: Express.Multer.File,
@@ -40,12 +47,22 @@ export class AnnotatedMetaphorsService {
 
     const headers = worksheet.getRow(1).values as string[];
     // Normalize headers: trim, remove spaces, and lowercase
-    const normalizedHeaders = headers.map(h => h ? h.trim().replace(/\s/g, '').toLowerCase() : '');
-    
-    const requiredFields = ['customid', 'expression', 'conceptualmetaphor', 'sourcedomain', 'targetdomain'];
+    const normalizedHeaders = headers.map((h) =>
+      h ? h.trim().replace(/\s/g, '').toLowerCase() : '',
+    );
+
+    const requiredFields = [
+      'customid',
+      'expression',
+      'conceptualmetaphor',
+      'sourcedomain',
+      'targetdomain',
+    ];
     for (const field of requiredFields) {
       if (!normalizedHeaders.includes(field)) {
-        throw new BadRequestException(`Missing required column in Excel file: ${field}`);
+        throw new BadRequestException(
+          `Missing required column in Excel file: ${field}`,
+        );
       }
     }
 
@@ -62,17 +79,23 @@ export class AnnotatedMetaphorsService {
       rowData.rowNum = i; // Keep track of original row number
       metaphorsToCreate.push(rowData);
     }
-    
+
     const results = {
       created: [] as AnnotatedMetaphorDocument[],
-      errors: [] as { row: number, customId: string, error: string }[],
+      errors: [] as { row: number; customId: string; error: string }[],
     };
 
     for (const data of metaphorsToCreate) {
       try {
-        const sourceDomain = await this.domainsService.findOrCreate(data.sourcedomain, 'source');
-        const targetDomain = await this.domainsService.findOrCreate(data.targetdomain, 'target');
-        
+        const sourceDomain = await this.domainsService.findOrCreate(
+          data.sourcedomain,
+          'source',
+        );
+        const targetDomain = await this.domainsService.findOrCreate(
+          data.targetdomain,
+          'target',
+        );
+
         const metaphorData: any = {
           documentId: new Types.ObjectId(documentId),
           createdBy: new Types.ObjectId(createdBy),
@@ -83,7 +106,7 @@ export class AnnotatedMetaphorsService {
           targetDomain: targetDomain._id,
           status: 'under_review',
         };
-        
+
         if (data.pos) {
           const pos = await this.posService.findOrCreate(data.pos);
           metaphorData.pos = pos._id;
@@ -96,20 +119,25 @@ export class AnnotatedMetaphorsService {
         if (data.subsection4) metaphorData.subsection4 = data.subsection4;
         if (data.subsection5) metaphorData.subsection5 = data.subsection5;
         if (data.triggerword) metaphorData.triggerWord = data.triggerword;
-        if (data.triggerwordloc) metaphorData.triggerWordLoc = data.triggerwordloc;
+        if (data.triggerwordloc)
+          metaphorData.triggerWordLoc = data.triggerwordloc;
         if (data.lemma) metaphorData.lemma = data.lemma;
         if (data.context) metaphorData.context = data.context;
-        if (data.literalmeaning) metaphorData.literalMeaning = data.literalmeaning;
-        if (data.contextualmeaning) metaphorData.contextualMeaning = data.contextualmeaning;
-        if (data.ontologicalmappings) metaphorData.ontologicalMappings = data.ontologicalmappings.split(';');
-        if (data.epistemicmappings) metaphorData.epistemicMappings = data.epistemicmappings.split(';');
+        if (data.literalmeaning)
+          metaphorData.literalMeaning = data.literalmeaning;
+        if (data.contextualmeaning)
+          metaphorData.contextualMeaning = data.contextualmeaning;
+        if (data.ontologicalmappings)
+          metaphorData.ontologicalMappings =
+            data.ontologicalmappings.split(';');
+        if (data.epistemicmappings)
+          metaphorData.epistemicMappings = data.epistemicmappings.split(';');
         if (data.noveltytype) metaphorData.noveltyType = data.noveltytype;
         if (data.functiontype) metaphorData.functionType = data.functiontype;
         if (data.comments) metaphorData.comments = data.comments.split(';');
-        
+
         const created = await this.metaphorModel.create(metaphorData);
         results.created.push(created);
-
       } catch (error: any) {
         let errorMessage = 'Unknown error';
         if (error.code === 11000) {
@@ -117,7 +145,11 @@ export class AnnotatedMetaphorsService {
         } else if (error instanceof Error) {
           errorMessage = error.message;
         }
-        results.errors.push({ row: data.rowNum, customId: data.customid || 'N/A', error: errorMessage });
+        results.errors.push({
+          row: data.rowNum,
+          customId: data.customid || 'N/A',
+          error: errorMessage,
+        });
       }
     }
 
@@ -154,11 +186,7 @@ export class AnnotatedMetaphorsService {
 
   async changeStatus(
     id: string,
-    status:
-      | 'approved'
-      | 'to_edit'
-      | 'discarded'
-      | 'metonymy',
+    status: 'approved' | 'to_edit' | 'discarded' | 'metonymy',
   ): Promise<AnnotatedMetaphor> {
     const updated = await this.metaphorModel
       .findByIdAndUpdate(id, { status }, { new: true })
@@ -185,7 +213,7 @@ export class AnnotatedMetaphorsService {
 
   async exportToExcel(
     documentId: string,
-    options: ExportOptions = {}
+    options: ExportOptions = {},
   ): Promise<Buffer> {
     // Fetch all matching rows (no pagination)
     const { data: metaphors } = await this.findAll(documentId, {
@@ -212,7 +240,7 @@ export class AnnotatedMetaphorsService {
     ];
 
     // Rows
-    metaphors.forEach(m => {
+    metaphors.forEach((m) => {
       sheet.addRow({
         customId: m.customId,
         expression: m.expression,
@@ -261,18 +289,18 @@ export class AnnotatedMetaphorsService {
     if (filter.sortBy) sort[filter.sortBy] = filter.sortDir === 'desc' ? -1 : 1;
 
     const [data, total] = await Promise.all([
-  this.metaphorModel
-    .find(q)
-    .sort(sort)
-    .skip((page - 1) * limit)
-    .limit(limit)
-    .populate('sourceDomain', 'name')  // only bring back the `name` field
-    .populate('targetDomain', 'name')
-    .populate('pos', 'name')
-    .lean()
-    .exec(),
-  this.metaphorModel.countDocuments(q).exec(),
-]);
+      this.metaphorModel
+        .find(q)
+        .sort(sort)
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .populate('sourceDomain', 'name') // only bring back the `name` field
+        .populate('targetDomain', 'name')
+        .populate('pos', 'name')
+        .lean()
+        .exec(),
+      this.metaphorModel.countDocuments(q).exec(),
+    ]);
 
     return { data, total, page, limit };
   }
@@ -281,18 +309,22 @@ export class AnnotatedMetaphorsService {
   async updateOne(
     id: string,
     updates: Partial<Omit<AnnotatedMetaphor, 'createdBy' | 'documentId'>>,
-    userId: string
+    userId: string,
   ) {
     // Get the current state
     const current = await this.metaphorModel.findById(id).exec();
-    if (!current) throw new NotFoundException(`AnnotatedMetaphor ${id} not found`);
+    if (!current)
+      throw new NotFoundException(`AnnotatedMetaphor ${id} not found`);
 
     // Convert string ObjectIDs to Types.ObjectId for fields that require it
     const processedUpdates: any = { ...updates };
     const objectIdFields = ['pos', 'sourceDomain', 'targetDomain'];
-    
+
     for (const field of objectIdFields) {
-      if (processedUpdates[field] && typeof processedUpdates[field] === 'string') {
+      if (
+        processedUpdates[field] &&
+        typeof processedUpdates[field] === 'string'
+      ) {
         processedUpdates[field] = new Types.ObjectId(processedUpdates[field]);
       }
     }
@@ -304,7 +336,7 @@ export class AnnotatedMetaphorsService {
       if (JSON.stringify(current[key]) !== JSON.stringify(value)) {
         changes[key] = {
           before: current[key],
-          after: value
+          after: value,
         };
       }
     }
@@ -314,9 +346,9 @@ export class AnnotatedMetaphorsService {
       const update = {
         metadata: {
           timestamp: new Date(),
-          user: userId
+          user: userId,
         },
-        changes
+        changes,
       };
 
       processedUpdates['$push'] = { updates: update };
@@ -325,7 +357,7 @@ export class AnnotatedMetaphorsService {
     const updated = await this.metaphorModel
       .findByIdAndUpdate(id, processedUpdates, { new: true })
       .exec();
-    
+
     return updated;
   }
 
@@ -335,7 +367,7 @@ export class AnnotatedMetaphorsService {
     updates: { status?: string; comments?: string[] },
   ) {
     const res = await this.metaphorModel.updateMany(
-      { _id: { $in: ids.map(id => new Types.ObjectId(id)) } },
+      { _id: { $in: ids.map((id) => new Types.ObjectId(id)) } },
       { $set: updates },
     );
     return {
@@ -348,5 +380,4 @@ export class AnnotatedMetaphorsService {
   async getAllPOS() {
     return this.posService.findAll();
   }
-
 }

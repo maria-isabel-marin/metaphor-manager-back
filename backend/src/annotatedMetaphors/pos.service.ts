@@ -27,4 +27,4 @@ export class POSService {
   async findAll(): Promise<POSDocument[]> {
     return await this.posModel.find().sort({ name: 1 }).exec();
   }
-} 
+}

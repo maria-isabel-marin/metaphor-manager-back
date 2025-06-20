@@ -1,0 +1,53 @@
+// Migration script to update existing documents
+// Run this script in MongoDB to migrate from gcsPathPdf/gcsPathTxt to gcsPath/fileType
+
+// Connect to your MongoDB database
+// Replace 'your_database_name' with your actual database name
+use your_database_name;
+
+print("Starting document migration...");
+
+// Update documents that have gcsPathPdf
+db.documents.updateMany(
+  { 
+    gcsPathPdf: { $exists: true, $ne: null },
+    gcsPath: { $exists: false }
+  },
+  [
+    {
+      $set: {
+        gcsPath: "$gcsPathPdf",
+        fileType: "pdf"
+      }
+    }
+  ]
+);
+
+print("Updated documents with gcsPathPdf");
+
+// Update documents that have gcsPathTxt
+db.documents.updateMany(
+  { 
+    gcsPathTxt: { $exists: true, $ne: null },
+    gcsPath: { $exists: false }
+  },
+  [
+    {
+      $set: {
+        gcsPath: "$gcsPathTxt",
+        fileType: "txt"
+      }
+    }
+  ]
+);
+
+print("Updated documents with gcsPathTxt");
+
+// Show migration results
+print("\nMigration Results:");
+print("Documents with gcsPathPdf migrated:", db.documents.countDocuments({ gcsPathPdf: { $exists: true, $ne: null } }));
+print("Documents with gcsPathTxt migrated:", db.documents.countDocuments({ gcsPathTxt: { $exists: true, $ne: null } }));
+print("Documents with new gcsPath field:", db.documents.countDocuments({ gcsPath: { $exists: true, $ne: null } }));
+print("Documents with new fileType field:", db.documents.countDocuments({ fileType: { $exists: true, $ne: null } }));
+
+print("\nMigration completed successfully!"); 

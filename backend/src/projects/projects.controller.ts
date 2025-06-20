@@ -25,10 +25,13 @@ export class ProjectsController {
   @Post()
   async create(@Req() req: any, @Body() dto: CreateProjectDto) {
     const ownerId = req.user._id.toString();
-    return this.service.create({ ...dto, owner: ownerId }, {
-      _id: ownerId,
-      email: req.user.email,
-    });
+    return this.service.create(
+      { ...dto, owner: ownerId },
+      {
+        _id: ownerId,
+        email: req.user.email,
+      },
+    );
   }
 
   /** Lista los proyectos donde el usuario es owner o reviewer */
@@ -53,9 +56,11 @@ export class ProjectsController {
       email: req.user.email,
     });
     const userId = req.user._id.toString();
-    
-    if (project.owner.toString() !== userId && 
-        !project.reviewers?.some(reviewer => reviewer.toString() === userId)) {
+
+    if (
+      project.owner.toString() !== userId &&
+      !project.reviewers?.some((reviewer) => reviewer.toString() === userId)
+    ) {
       throw new ForbiddenException('You do not have access to this project');
     }
     return project;

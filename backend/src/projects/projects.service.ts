@@ -28,18 +28,22 @@ export class ProjectsService {
   ) {}
 
   /** Crea un proyecto vinculando owner y reviewers como ObjectId */
-  async create(dto: CreateProjectDto & { owner: string }, user: RequestUser): Promise<Project> {
+  async create(
+    dto: CreateProjectDto & { owner: string },
+    user: RequestUser,
+  ): Promise<Project> {
     // Buscar los usuarios por email para los reviewers
     let reviewerIds: Types.ObjectId[] = [];
     if (dto.reviewerEmails?.length) {
-      const reviewers = await Promise.all(
-        dto.reviewerEmails.map(async email => {
+      const reviewers = (await Promise.all(
+        dto.reviewerEmails.map(async (email) => {
           const user = await this.usersService.findByEmail(email);
-          if (!user) throw new NotFoundException(`User with email ${email} not found`);
+          if (!user)
+            throw new NotFoundException(`User with email ${email} not found`);
           return user;
-        })
-      ) as UserWithId[];
-      reviewerIds = reviewers.map(user => user._id);
+        }),
+      )) as UserWithId[];
+      reviewerIds = reviewers.map((user) => user._id);
     }
 
     const created = await new this.projectModel({
@@ -62,23 +66,28 @@ export class ProjectsService {
   }
 
   /** Lista proyectos donde el usuario es owner o reviewer */
-  async findAll(userId: string, user: RequestUser): Promise<{ owned: Project[], reviewing: Project[] }> {
+  async findAll(
+    userId: string,
+    user: RequestUser,
+  ): Promise<{ owned: Project[]; reviewing: Project[] }> {
     const userObjectId = new Types.ObjectId(userId);
-    
+
     const [owned, reviewing] = await Promise.all([
-      this.projectModel.find({ owner: userObjectId })
+      this.projectModel
+        .find({ owner: userObjectId })
         .populate('owner', 'email name')
         .populate('reviewers', 'email name')
         .exec(),
-      this.projectModel.find({ reviewers: userObjectId })
+      this.projectModel
+        .find({ reviewers: userObjectId })
         .populate('owner', 'email name')
         .populate('reviewers', 'email name')
-        .exec()
+        .exec(),
     ]);
 
     // Log the read action for each project
     await Promise.all([
-      ...owned.map(project => 
+      ...owned.map((project) =>
         this.actionLogService.logAction({
           action: ActionType.READ,
           entityType: EntityType.PROJECT,
@@ -86,9 +95,9 @@ export class ProjectsService {
           userId: user._id,
           userEmail: user.email,
           details: { name: project.name, as: 'owner' },
-        })
+        }),
       ),
-      ...reviewing.map(project =>
+      ...reviewing.map((project) =>
         this.actionLogService.logAction({
           action: ActionType.READ,
           entityType: EntityType.PROJECT,
@@ -96,8 +105,8 @@ export class ProjectsService {
           userId: user._id,
           userEmail: user.email,
           details: { name: project.name, as: 'reviewer' },
-        })
-      )
+        }),
+      ),
     ]);
 
     return { owned, reviewing };
@@ -110,7 +119,7 @@ export class ProjectsService {
       .populate('owner', 'email name')
       .populate('reviewers', 'email name')
       .exec();
-      
+
     if (!project) {
       throw new NotFoundException(`Project with id ${id} not found`);
     }
@@ -138,14 +147,15 @@ export class ProjectsService {
 
     // Si hay emails de reviewers, convertirlos a IDs
     if (dto.reviewerEmails?.length) {
-      const reviewers = await Promise.all(
-        dto.reviewerEmails.map(async email => {
+      const reviewers = (await Promise.all(
+        dto.reviewerEmails.map(async (email) => {
           const user = await this.usersService.findByEmail(email);
-          if (!user) throw new NotFoundException(`User with email ${email} not found`);
+          if (!user)
+            throw new NotFoundException(`User with email ${email} not found`);
           return user;
-        })
-      ) as UserWithId[];
-      updateData.reviewers = reviewers.map(user => user._id);
+        }),
+      )) as UserWithId[];
+      updateData.reviewers = reviewers.map((user) => user._id);
     }
 
     const updated = await this.projectModel

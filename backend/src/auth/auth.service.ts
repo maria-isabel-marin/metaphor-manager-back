@@ -21,7 +21,8 @@ export class AuthService {
       throw new UnauthorizedException('Google account has no email');
     }
 
-    let user: UserDocument | null = await this.usersService.findByGoogleId(googleId);
+    let user: UserDocument | null =
+      await this.usersService.findByGoogleId(googleId);
 
     if (!user) {
       user = await this.usersService.findByEmail(email);

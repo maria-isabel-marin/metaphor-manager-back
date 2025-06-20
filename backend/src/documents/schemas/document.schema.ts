@@ -1,6 +1,6 @@
 // backend/src/documents/schemas/document.schema.ts
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document as MongooseDocument, Types } from 'mongoose';
+import { Types } from 'mongoose';
 import { HydratedDocument } from 'mongoose';
 
 @Schema({ collection: 'documents', timestamps: true })
@@ -30,13 +30,18 @@ export class DocumentModel {
   notes?: string;
 
   @Prop()
-  gcsPath: string;
+  gcsPath?: string;
 
   @Prop()
-  fileType: string;
+  fileType?: string;
+
+  // Legacy fields for migration compatibility
+  @Prop()
+  gcsPathPdf?: string;
+
+  @Prop()
+  gcsPathTxt?: string;
 }
 
 export type DocumentDocument = HydratedDocument<DocumentModel>;
 export const DocumentSchema = SchemaFactory.createForClass(DocumentModel);
-
-
