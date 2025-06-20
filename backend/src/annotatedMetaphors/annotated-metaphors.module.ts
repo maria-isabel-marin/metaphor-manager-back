@@ -2,23 +2,25 @@
 
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { AnnotatedMetaphorsService } from './annotated-metaphors.service';
 import { AnnotatedMetaphorsController } from './annotated-metaphors.controller';
+import { AnnotatedMetaphorsService } from './annotated-metaphors.service';
 import {
   AnnotatedMetaphor,
   AnnotatedMetaphorSchema,
 } from './schemas/annotated-metaphor.schema';
-import { DomainsModule } from '../domains/domains.module';
+import { Domain, DomainSchema } from '../domains/schemas/domain.schema';
+import { DomainsService } from '../domains/domains.service';
+import { PosModule } from './pos.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: AnnotatedMetaphor.name, schema: AnnotatedMetaphorSchema },
+      { name: Domain.name, schema: DomainSchema },
     ]),
-    DomainsModule,
+    PosModule,
   ],
   controllers: [AnnotatedMetaphorsController],
-  providers: [AnnotatedMetaphorsService],
-  exports: [AnnotatedMetaphorsService],
+  providers: [AnnotatedMetaphorsService, DomainsService],
 })
 export class AnnotatedMetaphorsModule {}

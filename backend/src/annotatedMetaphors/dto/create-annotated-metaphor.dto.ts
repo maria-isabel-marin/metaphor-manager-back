@@ -5,70 +5,118 @@ import {
   IsMongoId,
   IsEnum,
   IsArray,
-  ValidateNested,
+  IsOptional,
 } from 'class-validator';
-import { Type } from 'class-transformer';
-
-export class LocationDto {
-  @IsString()
-  section: string;
-
-  @IsString()
-  subsection: string;
-
-  @IsString()
-  page: string;
-}
 
 export class CreateAnnotatedMetaphorDto {
   @IsString()
-  customId: string;
+  @IsOptional()
+  customId?: string;
 
   @IsMongoId()
-  documentId: string;
+  @IsOptional()
+  documentId?: string;
 
   @IsString()
-  expression: string;
-
-  @ValidateNested()
-  @Type(() => LocationDto)
-  location: LocationDto;
+  @IsOptional()
+  expression?: string;
 
   @IsString()
-  triggerWord: string;
+  @IsOptional()
+  section?: string;
 
   @IsString()
-  lemma: string;
+  @IsOptional()
+  subsection?: string;
 
   @IsString()
-  context: string;
+  @IsOptional()
+  subsection3?: string;
 
   @IsString()
-  literalMeaning: string;
+  @IsOptional()
+  subsection4?: string;
+  
+  @IsString()
+  @IsOptional()
+  subsection5?: string;
 
   @IsString()
-  contextualMeaning: string;
+  @IsOptional()
+  page?: string;
+
+  @IsString()
+  @IsOptional()
+  order?: string;
+
+  @IsString()
+  @IsOptional()
+  triggerWord?: string;
+  
+  @IsString()
+  @IsOptional()
+  triggerWordLoc?: string;
+
+  @IsString()
+  @IsOptional()
+  lemma?: string;
 
   @IsMongoId()
-  sourceDomain: string;
-
-  @IsMongoId()
-  targetDomain: string;
+  @IsOptional()
+  pos?: string;
 
   @IsString()
-  conceptualMetaphor: string;
+  @IsOptional()
+  context?: string;
+
+  @IsString()
+  @IsOptional()
+  literalMeaning?: string;
+
+  @IsString()
+  @IsOptional()
+  contextualMeaning?: string;
+
+  @IsMongoId()
+  @IsOptional()
+  sourceDomain?: string;
+
+  @IsMongoId()
+  @IsOptional()
+  targetDomain?: string;
+
+  @IsString()
+  @IsOptional()
+  conceptualMetaphor?: string;
 
   @IsArray()
   @IsString({ each: true })
-  ontologicalMappings: string[];
+  @IsOptional()
+  ontologicalMappings?: string[];
 
   @IsArray()
   @IsString({ each: true })
-  epistemicMappings: string[];
+  @IsOptional()
+  epistemicMappings?: string[];
 
   @IsEnum(['novel/creative', 'conventional', 'lexicalized', 'fossilized'])
-  noveltyType: 'novel/creative' | 'conventional' | 'lexicalized' | 'fossilized';
+  @IsOptional()
+  noveltyType?: 'novel/creative' | 'conventional' | 'lexicalized' | 'fossilized';
 
   @IsEnum(['structural', 'ontological', 'orientational'])
-  functionType: 'structural' | 'ontological' | 'orientational';
+  @IsOptional()
+  functionType?: 'structural' | 'ontological' | 'orientational';
+
+  @IsEnum(['under_review', 'approved', 'to_edit', 'discarded', 'metonymy'])
+  @IsOptional()
+  status?: 'under_review' | 'approved' | 'to_edit' | 'discarded' | 'metonymy';
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  comments?: string[];
+
+  @IsMongoId()
+  @IsOptional()
+  createdBy?: string;
 }

@@ -20,6 +20,7 @@ import { AnnotatedMetaphorsService } from '../annotatedMetaphors/annotated-metap
 
 import { DomainsModule } from '../domains/domains.module'
 import { CommonModule } from '../common/common.module'
+import { PosModule } from '../annotatedMetaphors/pos.module'
 
 @Module({
   imports: [
@@ -44,6 +45,9 @@ import { CommonModule } from '../common/common.module'
        storage: multer.memoryStorage(),
       limits: { fileSize: 20 * 1024 * 1024 }, // e.g. 20 MB
     }),
+
+    // Import PosModule para que POSService esté disponible
+    PosModule,
   ],
   controllers: [DocumentsController],
   providers: [

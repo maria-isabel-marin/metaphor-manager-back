@@ -37,16 +37,34 @@ export class AnnotatedMetaphor {
   subsection?: string;  // Opcional (no requerido)
 
   @Prop({ type: String })
-  subsubsection?: string;  // Opcional (no requerido)
+  subsection3?: string;
 
-  @Prop({ type: Number, required: true, default: 0 })
-  page: number;  // Numérico y requerido
+  @Prop({ type: String })
+  subsection4?: string;
+
+  @Prop({ type: String })
+  subsection5?: string;
+
+  @Prop({ type: String, required: false })
+  subsubsection?: string;
+
+  @Prop({ type: String, required: true, default: '0' })
+  page: string;
+
+  @Prop({ type: String })
+  order?: string;
 
   @Prop({ required: true, default: 'unknow_word' })
   triggerWord: string;
 
+  @Prop({ type: String })
+  triggerWordLoc?: string;
+
   @Prop({ required: true, default: 'unknow_lemma' })
   lemma: string;
+
+  @Prop({ type: Types.ObjectId, ref: 'POS' })
+  pos?: Types.ObjectId;
 
   @Prop({ required: true, default: 'undefined' })
   context: string;

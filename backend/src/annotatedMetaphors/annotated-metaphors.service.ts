@@ -1,12 +1,14 @@
 // File: src/annotatedMetaphors/annotated-metaphors.service.ts
 
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { AnnotatedMetaphor, AnnotatedMetaphorDocument } from './schemas/annotated-metaphor.schema';
 import { CreateAnnotatedMetaphorDto } from './dto/create-annotated-metaphor.dto';
 import { UpdateAnnotatedMetaphorDto } from './dto/update-annotated-metaphor.dto';
 import * as ExcelJS from 'exceljs';
+import { DomainsService } from '../domains/domains.service';
+import { POSService } from './pos.service';
 
 export interface ExportOptions {
   status?: string;
@@ -19,22 +21,117 @@ export class AnnotatedMetaphorsService {
   constructor(
     @InjectModel(AnnotatedMetaphor.name)
     private readonly metaphorModel: Model<AnnotatedMetaphorDocument>,
+    private readonly domainsService: DomainsService,
+    private readonly posService: POSService,
   ) { }
 
   async bulkImportFromExcel(
     file: Express.Multer.File,
+    documentId: string,
     createdBy: string,
-  ): Promise<AnnotatedMetaphor[]> {
-    // Aquí usarías exceljs o similar para parsear file.buffer
-    // y luego mapear cada fila a CreateAnnotatedMetaphorDto,
-    // asignar createdBy y status='under_review', y hacer insertMany.
-    throw new Error('bulkImportFromExcel not implemented');
+  ): Promise<any> {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(file.buffer);
+    const worksheet = workbook.worksheets[0];
+
+    if (!worksheet) {
+      throw new BadRequestException('No worksheet found in the Excel file.');
+    }
+
+    const headers = worksheet.getRow(1).values as string[];
+    // Normalize headers: trim, remove spaces, and lowercase
+    const normalizedHeaders = headers.map(h => h ? h.trim().replace(/\s/g, '').toLowerCase() : '');
+    
+    const requiredFields = ['customid', 'expression', 'conceptualmetaphor', 'sourcedomain', 'targetdomain'];
+    for (const field of requiredFields) {
+      if (!normalizedHeaders.includes(field)) {
+        throw new BadRequestException(`Missing required column in Excel file: ${field}`);
+      }
+    }
+
+    const metaphorsToCreate: any[] = [];
+    for (let i = 2; i <= worksheet.rowCount; i++) {
+      const row = worksheet.getRow(i);
+      const rowData: { [key: string]: any } = {};
+      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        const header = normalizedHeaders[colNumber];
+        if (header) {
+          rowData[header] = cell.value?.toString() || '';
+        }
+      });
+      rowData.rowNum = i; // Keep track of original row number
+      metaphorsToCreate.push(rowData);
+    }
+    
+    const results = {
+      created: [] as AnnotatedMetaphorDocument[],
+      errors: [] as { row: number, customId: string, error: string }[],
+    };
+
+    for (const data of metaphorsToCreate) {
+      try {
+        const sourceDomain = await this.domainsService.findOrCreate(data.sourcedomain, 'source');
+        const targetDomain = await this.domainsService.findOrCreate(data.targetdomain, 'target');
+        
+        const metaphorData: any = {
+          documentId: new Types.ObjectId(documentId),
+          createdBy: new Types.ObjectId(createdBy),
+          customId: data.customid,
+          expression: data.expression,
+          conceptualMetaphor: data.conceptualmetaphor,
+          sourceDomain: sourceDomain._id,
+          targetDomain: targetDomain._id,
+          status: 'under_review',
+        };
+        
+        if (data.pos) {
+          const pos = await this.posService.findOrCreate(data.pos);
+          metaphorData.pos = pos._id;
+        }
+        if (data.order) metaphorData.order = String(data.order);
+        if (data.page) metaphorData.page = String(data.page);
+        if (data.section) metaphorData.section = data.section;
+        if (data.subsection) metaphorData.subsection = data.subsection;
+        if (data.subsection3) metaphorData.subsection3 = data.subsection3;
+        if (data.subsection4) metaphorData.subsection4 = data.subsection4;
+        if (data.subsection5) metaphorData.subsection5 = data.subsection5;
+        if (data.triggerword) metaphorData.triggerWord = data.triggerword;
+        if (data.triggerwordloc) metaphorData.triggerWordLoc = data.triggerwordloc;
+        if (data.lemma) metaphorData.lemma = data.lemma;
+        if (data.context) metaphorData.context = data.context;
+        if (data.literalmeaning) metaphorData.literalMeaning = data.literalmeaning;
+        if (data.contextualmeaning) metaphorData.contextualMeaning = data.contextualmeaning;
+        if (data.ontologicalmappings) metaphorData.ontologicalMappings = data.ontologicalmappings.split(';');
+        if (data.epistemicmappings) metaphorData.epistemicMappings = data.epistemicmappings.split(';');
+        if (data.noveltytype) metaphorData.noveltyType = data.noveltytype;
+        if (data.functiontype) metaphorData.functionType = data.functiontype;
+        if (data.comments) metaphorData.comments = data.comments.split(';');
+        
+        const created = await this.metaphorModel.create(metaphorData);
+        results.created.push(created);
+
+      } catch (error: any) {
+        let errorMessage = 'Unknown error';
+        if (error.code === 11000) {
+          errorMessage = `Duplicate key error. The customId '${data.customid}' likely already exists.`;
+        } else if (error instanceof Error) {
+          errorMessage = error.message;
+        }
+        results.errors.push({ row: data.rowNum, customId: data.customid || 'N/A', error: errorMessage });
+      }
+    }
+
+    return results;
   }
 
   async findByDocument(documentId: string): Promise<AnnotatedMetaphor[]> {
     return this.metaphorModel
       .find({ documentId: new Types.ObjectId(documentId) })
       .sort({ createdAt: 1 })
+      .populate('sourceDomain', 'name')
+      .populate('targetDomain', 'name')
+      .populate('pos', 'name')
+      .lean()
       .exec();
   }
 
@@ -171,6 +268,7 @@ export class AnnotatedMetaphorsService {
     .limit(limit)
     .populate('sourceDomain', 'name')  // only bring back the `name` field
     .populate('targetDomain', 'name')
+    .populate('pos', 'name')
     .lean()
     .exec(),
   this.metaphorModel.countDocuments(q).exec(),

@@ -137,12 +137,13 @@ export class AnnotatedMetaphorsController {
   }))
   @HttpCode(200)
   async bulkImport(
+    @Param('docId') docId: string,
     @Req()        req: JwtRequest,
     @UploadedFile() file: Express.Multer.File,
   ) {
     // req.user._id comes from JwtAuthGuard
     console.log('[Controller:bulkImport] user=', req.user._id, 'file.originalname=', file.originalname);
-    return this.svc.bulkImportFromExcel(file, req.user._id);
+    return this.svc.bulkImportFromExcel(file, docId, req.user._id);
   }
 
   
