@@ -17,17 +17,19 @@ export class DomainsService {
   async findOrCreate(
     name: string,
     type: 'source' | 'target',
-  ): Promise<DomainDocument> {
+  ): Promise<{ domain: DomainDocument; isNew: boolean }> {
     const filter = { name, type };
     const existing = await this.domainModel.findOne(filter).exec();
-    if (existing) return existing;
+    if (existing) return { domain: existing, isNew: false };
     try {
       const created = new this.domainModel(filter);
-      return await created.save();
+      const saved = await created.save();
+      return { domain: saved, isNew: true };
     } catch (e: any) {
       // In case of unique conflict (race), re-fetch
       if (e.code === 11000) {
-        return (await this.domainModel.findOne(filter).exec())!;
+        const refetched = await this.domainModel.findOne(filter).exec();
+        return { domain: refetched!, isNew: false };
       }
       throw e;
     }

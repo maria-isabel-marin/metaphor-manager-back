@@ -23,6 +23,46 @@ export interface ExportOptions {
   search?: string;
 }
 
+// Interfaces para el reporte detallado
+export interface ImportError {
+  row: number;
+  customId: string;
+  error: string;
+  errorType: 'duplicate' | 'validation' | 'missing_field' | 'format' | 'unknown';
+}
+
+export interface ImportWarning {
+  row: number;
+  customId: string;
+  warning: string;
+  warningType: 'missing_field' | 'default_value' | 'format_issue';
+  field?: string;
+  appliedValue?: string;
+}
+
+export interface ImportStatistics {
+  totalProcessed: number;
+  successful: number;
+  failed: number;
+  warnings: number;
+  processingTime: number; // en milisegundos
+  fileSize: number; // en bytes
+  timestamp: Date;
+}
+
+export interface ImportSummary {
+  statistics: ImportStatistics;
+  successfulRecords: {
+    customIds: string[];
+    newDomains: { name: string; type: 'source' | 'target' }[];
+    newPOS: string[];
+  };
+  errors: ImportError[];
+  warnings: ImportWarning[];
+  errorsByType: { [key: string]: number };
+  warningsByType: { [key: string]: number };
+}
+
 @Injectable()
 export class AnnotatedMetaphorsService {
   constructor(
@@ -36,7 +76,8 @@ export class AnnotatedMetaphorsService {
     file: Express.Multer.File,
     documentId: string,
     createdBy: string,
-  ): Promise<any> {
+  ): Promise<ImportSummary> {
+    const startTime = Date.now();
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(file.buffer);
     const worksheet = workbook.worksheets[0];
@@ -82,19 +123,70 @@ export class AnnotatedMetaphorsService {
 
     const results = {
       created: [] as AnnotatedMetaphorDocument[],
-      errors: [] as { row: number; customId: string; error: string }[],
+      errors: [] as ImportError[],
+      warnings: [] as ImportWarning[],
+      newDomains: [] as { name: string; type: 'source' | 'target' }[],
+      newPOS: [] as string[],
     };
 
     for (const data of metaphorsToCreate) {
       try {
-        const sourceDomain = await this.domainsService.findOrCreate(
+        // Track warnings for this record
+        const recordWarnings: ImportWarning[] = [];
+        
+        // Check for missing non-critical fields
+        const optionalFields = ['pos', 'order', 'page', 'section', 'subsection', 'triggerword', 'lemma', 'context'];
+        optionalFields.forEach(field => {
+          if (!data[field] || data[field].trim() === '') {
+            recordWarnings.push({
+              row: data.rowNum,
+              customId: data.customid,
+              warning: `Missing optional field: ${field}`,
+              warningType: 'missing_field',
+              field: field
+            });
+          }
+        });
+
+        // Check for default values applied
+        if (!data.noveltytype || data.noveltytype.trim() === '') {
+          recordWarnings.push({
+            row: data.rowNum,
+            customId: data.customid,
+            warning: 'Novelty type not provided, applying default: conventional',
+            warningType: 'default_value',
+            field: 'noveltytype',
+            appliedValue: 'conventional'
+          });
+        }
+
+        if (!data.functiontype || data.functiontype.trim() === '') {
+          recordWarnings.push({
+            row: data.rowNum,
+            customId: data.customid,
+            warning: 'Function type not provided, applying default: structural',
+            warningType: 'default_value',
+            field: 'functiontype',
+            appliedValue: 'structural'
+          });
+        }
+
+        // Process domains and track new ones
+        const sourceDomainResult = await this.domainsService.findOrCreate(
           data.sourcedomain,
           'source',
         );
-        const targetDomain = await this.domainsService.findOrCreate(
+        if (sourceDomainResult.isNew) {
+          results.newDomains.push({ name: data.sourcedomain, type: 'source' });
+        }
+
+        const targetDomainResult = await this.domainsService.findOrCreate(
           data.targetdomain,
           'target',
         );
+        if (targetDomainResult.isNew) {
+          results.newDomains.push({ name: data.targetdomain, type: 'target' });
+        }
 
         const metaphorData: any = {
           documentId: new Types.ObjectId(documentId),
@@ -102,15 +194,21 @@ export class AnnotatedMetaphorsService {
           customId: data.customid,
           expression: data.expression,
           conceptualMetaphor: data.conceptualmetaphor,
-          sourceDomain: sourceDomain._id,
-          targetDomain: targetDomain._id,
+          sourceDomain: sourceDomainResult.domain._id,
+          targetDomain: targetDomainResult.domain._id,
           status: 'under_review',
         };
 
+        // Process POS and track new ones
         if (data.pos) {
-          const pos = await this.posService.findOrCreate(data.pos);
-          metaphorData.pos = pos._id;
+          const posResult = await this.posService.findOrCreate(data.pos);
+          metaphorData.pos = posResult.pos._id;
+          if (posResult.isNew) {
+            results.newPOS.push(data.pos);
+          }
         }
+
+        // Apply default values for missing fields
         if (data.order) metaphorData.order = String(data.order);
         if (data.page) metaphorData.page = String(data.page);
         if (data.section) metaphorData.section = data.section;
@@ -138,22 +236,68 @@ export class AnnotatedMetaphorsService {
 
         const created = await this.metaphorModel.create(metaphorData);
         results.created.push(created);
+        results.warnings.push(...recordWarnings);
       } catch (error: any) {
         let errorMessage = 'Unknown error';
+        let errorType: ImportError['errorType'] = 'unknown';
+        
         if (error.code === 11000) {
           errorMessage = `Duplicate key error. The customId '${data.customid}' likely already exists.`;
+          errorType = 'duplicate';
+        } else if (error.name === 'ValidationError') {
+          errorMessage = error.message;
+          errorType = 'validation';
         } else if (error instanceof Error) {
           errorMessage = error.message;
+          errorType = 'unknown';
         }
+        
         results.errors.push({
           row: data.rowNum,
           customId: data.customid || 'N/A',
           error: errorMessage,
+          errorType,
         });
       }
     }
 
-    return results;
+    const processingTime = Date.now() - startTime;
+    
+    // Group errors and warnings by type
+    const errorsByType = results.errors.reduce((acc, error) => {
+      acc[error.errorType] = (acc[error.errorType] || 0) + 1;
+      return acc;
+    }, {} as { [key: string]: number });
+
+    const warningsByType = results.warnings.reduce((acc, warning) => {
+      acc[warning.warningType] = (acc[warning.warningType] || 0) + 1;
+      return acc;
+    }, {} as { [key: string]: number });
+
+    const statistics: ImportStatistics = {
+      totalProcessed: metaphorsToCreate.length,
+      successful: results.created.length,
+      failed: results.errors.length,
+      warnings: results.warnings.length,
+      processingTime,
+      fileSize: file.size,
+      timestamp: new Date(),
+    };
+
+    const summary: ImportSummary = {
+      statistics,
+      successfulRecords: {
+        customIds: results.created.map(m => m.customId),
+        newDomains: results.newDomains,
+        newPOS: results.newPOS,
+      },
+      errors: results.errors,
+      warnings: results.warnings,
+      errorsByType,
+      warningsByType,
+    };
+
+    return summary;
   }
 
   async findByDocument(documentId: string): Promise<AnnotatedMetaphor[]> {

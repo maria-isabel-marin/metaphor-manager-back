@@ -10,15 +10,17 @@ export class POSService {
     private readonly posModel: Model<POSDocument>,
   ) {}
 
-  async findOrCreate(name: string): Promise<POSDocument> {
+  async findOrCreate(name: string): Promise<{ pos: POSDocument; isNew: boolean }> {
     let pos = await this.posModel.findOne({ name }).exec();
-    if (pos) return pos;
+    if (pos) return { pos, isNew: false };
     try {
       pos = new this.posModel({ name });
-      return await pos.save();
+      const saved = await pos.save();
+      return { pos: saved, isNew: true };
     } catch (e: any) {
       if (e.code === 11000) {
-        return (await this.posModel.findOne({ name }).exec())!;
+        const refetched = await this.posModel.findOne({ name }).exec();
+        return { pos: refetched!, isNew: false };
       }
       throw e;
     }

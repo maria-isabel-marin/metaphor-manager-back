@@ -303,8 +303,8 @@ export class DocumentsService {
         context: context?.toString() || 'undefined',
         literalMeaning: literalMeaning?.toString() || 'undefined',
         contextualMeaning: contextualMeaning?.toString() || 'undefined',
-        sourceDomain: src._id,
-        targetDomain: tgt._id,
+        sourceDomain: src.domain._id,
+        targetDomain: tgt.domain._id,
         conceptualMetaphor: conceptualMetaphor?.toString() || '',
         ontologicalMappings: String(ontologicalMappings || '')
           .split(';')
