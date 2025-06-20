@@ -37,7 +37,7 @@ export class DocumentsService {
     private readonly actionLogService: ActionLogService,
   ) {}
 
-  /** 1) List all documents under a project, returning signed URLs */
+  /** 1) List all documents under a project */
   async findByProject(projectId: string, user: RequestUser): Promise<any[]> {
     const docs = await this.docModel
       .find({ projectId: new Types.ObjectId(projectId) })
@@ -63,22 +63,13 @@ export class DocumentsService {
       docs.map(async (doc) => {
         const obj = doc.toObject() as any;
 
-        if (obj.gcsPathPdf) {
-          const file = bucket.file(obj.gcsPathPdf);
-          const [pdfUrl] = await file.getSignedUrl({
+        if (obj.gcsPath) {
+          const file = bucket.file(obj.gcsPath);
+          const [fileUrl] = await file.getSignedUrl({
             action: 'read',
             expires: Date.now() + 60 * 60 * 1000, // 1 hour
           });
-          obj.filePdfUrl = pdfUrl;
-        }
-
-        if (obj.gcsPathTxt) {
-          const file = bucket.file(obj.gcsPathTxt);
-          const [txtUrl] = await file.getSignedUrl({
-            action: 'read',
-            expires: Date.now() + 60 * 60 * 1000,
-          });
-          obj.fileTxtUrl = txtUrl;
+          obj.fileUrl = fileUrl;
         }
 
         return obj;
@@ -104,40 +95,33 @@ export class DocumentsService {
     return doc;
   }
 
-  /** 3) Create and upload files to GCS */
+  /** 3) Create and upload file to GCS */
   async create(
     data: CreateDocumentDto & {
-      projectId: string;
       owner: string;
-      pdf?: Express.Multer.File;
-      txt?: Express.Multer.File;
+      file?: Express.Multer.File;
     },
     user: RequestUser,
   ): Promise<DocumentModel> {
     const bucket = this.storage.bucket(this.bucketName);
-    let gcsPathPdf: string | null = null;
-    let gcsPathTxt: string | null = null;
+    let gcsPath: string | null = null;
+    let fileType: string | null = null;
 
-    if (data.pdf) {
-      gcsPathPdf = `documents/pdf-${Date.now()}-${data.pdf.originalname}`;
+    if (data.file) {
+      gcsPath = `documents/${Date.now()}-${data.file.originalname}`;
+      fileType = data.file.mimetype.split('/')[1]; // e.g., 'pdf', 'plain'
+      
       await bucket
-        .file(gcsPathPdf)
-        .save(data.pdf.buffer, { contentType: data.pdf.mimetype });
-    }
-
-    if (data.txt) {
-      gcsPathTxt = `documents/txt-${Date.now()}-${data.txt.originalname}`;
-      await bucket
-        .file(gcsPathTxt)
-        .save(data.txt.buffer, { contentType: data.txt.mimetype });
+        .file(gcsPath)
+        .save(data.file.buffer, { contentType: data.file.mimetype });
     }
 
     const created = await new this.docModel({
       ...data,
       projectId: new Types.ObjectId(data.projectId),
       createdBy: new Types.ObjectId(data.owner),
-      gcsPathPdf,
-      gcsPathTxt,
+      gcsPath,
+      fileType,
     }).save();
 
     // Log the create action
@@ -173,9 +157,8 @@ export class DocumentsService {
     return updated;
   }
 
-  /** 5) Delete a document record (files remain in bucket) */
+  /** 5) Delete a document record and its file from GCS */
   async remove(id: string, user: RequestUser): Promise<void> {
-    // 1) Fetch the doc to know its GCS paths
     const doc = await this.docModel.findById(id).exec();
     if (!doc) throw new NotFoundException(`Document ${id} not found`);
 
@@ -191,21 +174,12 @@ export class DocumentsService {
 
     const bucket = this.storage.bucket(this.bucketName);
 
-    // 2) Delete PDF if exists
-    if (doc.gcsPathPdf) {
-      await bucket.file(doc.gcsPathPdf).delete().catch(() => {
-        console.warn(`Could not delete PDF ${doc.gcsPathPdf}`);
+    if (doc.gcsPath) {
+      await bucket.file(doc.gcsPath).delete().catch(() => {
+        console.warn(`Could not delete file ${doc.gcsPath} from GCS.`);
       });
     }
-
-    // 3) Delete TXT if exists
-    if (doc.gcsPathTxt) {
-      await bucket.file(doc.gcsPathTxt).delete().catch(() => {
-        console.warn(`Could not delete TXT ${doc.gcsPathTxt}`);
-      });
-    }
-
-    // 4) Remove document record from Mongo
+    
     const res = await this.docModel.findByIdAndDelete(id).exec();
     if (!res) throw new NotFoundException(`Document ${id} not found`);
   }

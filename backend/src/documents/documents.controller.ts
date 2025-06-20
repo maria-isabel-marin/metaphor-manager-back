@@ -11,13 +11,11 @@ import {
   Req,
   UseGuards,
   UseInterceptors,
-  UploadedFiles,
   UploadedFile,
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
 import {
-  FileFieldsInterceptor,
   FileInterceptor,
 } from '@nestjs/platform-express';
 import * as multer from 'multer';
@@ -49,19 +47,10 @@ export class DocumentsController {
   }
 
   @Post()
-  @UseInterceptors(
-    FileFieldsInterceptor([
-      { name: 'pdf', maxCount: 1 },
-      { name: 'txt', maxCount: 1 },
-    ]),
-  )
+  @UseInterceptors(FileInterceptor('file'))
   async create(
     @Body() dto: CreateDocumentDto,
-    @UploadedFiles()
-    files: {
-      pdf?: Express.Multer.File[];
-      txt?: Express.Multer.File[];
-    },
+    @UploadedFile() file: Express.Multer.File,
     @Req() req: any,
   ) {
     const userId = req.user._id.toString();
@@ -69,8 +58,7 @@ export class DocumentsController {
       {
         ...dto,
         owner: userId,
-        pdf: files.pdf?.[0],
-        txt: files.txt?.[0],
+        file,
       },
       {
         _id: userId,
