@@ -60,13 +60,15 @@ export class AuthController {
   /** 4) Perfil del usuario logueado */
   @Get('profile')
   @UseGuards(JwtAuthGuard)
-  getProfile(@Req() req: JwtRequest) {
-    // Devolver payload esencial
+  getProfile(@Req() req: any) {
+    // req.user es un UserDocument completo
     return {
-      id: req.user.sub,
+      id: req.user._id,
       email: req.user.email,
       name: req.user.name,
       role: req.user.role,
+      avatar: req.user.avatar,
+      googleId: req.user.googleId,
     };
   }
 }

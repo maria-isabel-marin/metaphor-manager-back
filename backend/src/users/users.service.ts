@@ -52,4 +52,12 @@ export class UsersService {
     const result = await this.userModel.findByIdAndDelete(id).exec();
     if (!result) throw new NotFoundException(`User with id ${id} not found`);
   }
+
+  async updateColumnPreferences(userId: string, prefs: Record<string, any>) {
+    return this.userModel.findByIdAndUpdate(
+      userId,
+      { $set: { columnPreferences: prefs } },
+      { new: true }
+    ).exec();
+  }
 }

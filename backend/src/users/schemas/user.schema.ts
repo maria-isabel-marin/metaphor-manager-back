@@ -21,6 +21,9 @@ export class User {
 
   @Prop({ required: true, enum: ['editor', 'reviewer'] })
   role: 'editor' | 'reviewer';
+
+  @Prop({ type: Object, default: {} })
+  columnPreferences: Record<string, any>;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
