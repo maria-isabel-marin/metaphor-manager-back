@@ -41,7 +41,7 @@ export class DomainsService {
   }
 
   async findAll(): Promise<Domain[]> {
-    return this.domainModel.find().exec();
+    return this.domainModel.find().sort({ name: 1 }).exec();
   }
 
   async findOne(id: string): Promise<Domain> {
