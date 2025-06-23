@@ -2,11 +2,27 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { RequestMethod } from '@nestjs/common';
 import mongoose from 'mongoose';
+import helmet from 'helmet';
+import * as compression from 'compression';
 
-mongoose.set('debug', true);
+// Solo habilitar debug en desarrollo
+if (process.env.NODE_ENV !== 'production') {
+  mongoose.set('debug', true);
+}
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Configuración de seguridad y optimización
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  // Helmet para headers de seguridad (siempre activo)
+  app.use(helmet());
+  
+  // Compresión (solo en producción para no afectar desarrollo)
+  if (isProduction) {
+    app.use(compression());
+  }
 
   // Habilita CORS desde variable de entorno
   const corsOrigin = process.env.CORS || 'http://localhost:3001';

@@ -3,6 +3,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule, MongooseModuleOptions } from '@nestjs/mongoose';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
 
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
@@ -21,7 +22,22 @@ import { AppService } from './app.service';
     // 1) Carga .env antes de cualquier otra cosa
     ConfigModule.forRoot({ isGlobal: true }),
 
-    // 2) Conecta a Mongo usando async factory que lee ConfigService
+    // 2) Rate limiting - más permisivo en desarrollo
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const isProduction = config.get('NODE_ENV') === 'production';
+        return [
+          {
+            ttl: isProduction ? 60000 : 1000, // 1 min en prod, 1 seg en dev
+            limit: isProduction ? 100 : 1000, // 100 requests/min en prod, 1000 en dev
+          },
+        ];
+      },
+    }),
+
+    // 3) Conecta a Mongo usando async factory que lee ConfigService
     MongooseModule.forRootAsync({
       imports: [ConfigModule], // importar el módulo global de config
       inject: [ConfigService], // inyectar ConfigService
@@ -34,7 +50,7 @@ import { AppService } from './app.service';
       },
     }),
 
-    // 3) El resto de módulos de tu app
+    // 4) El resto de módulos de tu app
     CommonModule,
     UsersModule,
     AuthModule,
