@@ -33,8 +33,9 @@ export class AuthController {
   async googleAuthRedirect(@Req() req: any, @Res() res: Response) {
     const { accessToken } = req.user as { accessToken: string };
     // Redirigir al frontend con el token
+    const frontendUrl = process.env.CORS || 'http://localhost:3001';
     return res.redirect(
-      `http://localhost:3001/auth/success?token=${accessToken}`,
+      `${frontendUrl}/auth/success?token=${accessToken}`,
     );
   }
 

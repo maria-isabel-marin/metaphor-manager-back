@@ -8,9 +8,10 @@ mongoose.set('debug', true);
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Habilita CORS para tu frontend
+  // Habilita CORS desde variable de entorno
+  const corsOrigin = process.env.CORS || 'http://localhost:3001';
   app.enableCors({
-    origin: 'http://localhost:3001', // o ['http://localhost:3001'] si quieres más de un origen
+    origin: corsOrigin,
     credentials: true,
   });
 
