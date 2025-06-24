@@ -4,6 +4,17 @@ import { RequestMethod } from '@nestjs/common';
 import mongoose from 'mongoose';
 import helmet from 'helmet';
 import * as compression from 'compression';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+
+// Escribir credenciales de Google Cloud a un archivo temporal si la variable existe
+if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
+  const dir = os.tmpdir();
+  const filePath = path.join(dir, 'google-credentials.json');
+  fs.writeFileSync(filePath, process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+  process.env.GOOGLE_APPLICATION_CREDENTIALS = filePath;
+}
 
 // Solo habilitar debug en desarrollo
 if (process.env.NODE_ENV !== 'production') {
