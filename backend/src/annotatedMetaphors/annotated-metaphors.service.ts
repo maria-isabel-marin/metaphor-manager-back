@@ -72,25 +72,46 @@ export class AnnotatedMetaphorsService {
     private readonly posService: POSService,
   ) {}
 
+  //se modifica
   async bulkImportFromExcel(
     file: Express.Multer.File,
     documentId: string,
     createdBy: string,
   ): Promise<ImportSummary> {
+    if (!file?.buffer) {
+      throw new BadRequestException('Uploaded file is empty or invalid.');
+    }
+
     const startTime = Date.now();
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(file.buffer);
+
+    try {
+      await workbook.xlsx.load(file.buffer);
+    } catch (error) {
+      throw new BadRequestException(
+        'The uploaded file could not be read as a valid Excel workbook.',
+      );
+    }
+
     const worksheet = workbook.worksheets[0];
 
     if (!worksheet) {
       throw new BadRequestException('No worksheet found in the Excel file.');
     }
 
-    const headers = worksheet.getRow(1).values as string[];
-    // Normalize headers: trim, remove spaces, and lowercase
-    const normalizedHeaders = headers.map((h) =>
-      h ? h.trim().replace(/\s/g, '').toLowerCase() : '',
-    );
+    //Se modifica para que reciba mas formatos de encabezados
+    const headers = worksheet.getRow(1).values as any[];
+
+    const normalizedHeaders = headers.map((h) => {
+      if (h === null || h === undefined) return '';
+
+      const value =
+        typeof h === 'object' && 'text' in h
+          ? String((h as any).text)
+          : String(h);
+
+      return value.trim().replace(/\s/g, '').toLowerCase();
+    });
 
     const requiredFields = [
       'customid',
@@ -99,6 +120,7 @@ export class AnnotatedMetaphorsService {
       'sourcedomain',
       'targetdomain',
     ];
+
     for (const field of requiredFields) {
       if (!normalizedHeaders.includes(field)) {
         throw new BadRequestException(
@@ -548,4 +570,3 @@ export class AnnotatedMetaphorsService {
     return this.posService.findAll();
   }
 }
-
