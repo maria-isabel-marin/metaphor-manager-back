@@ -31,6 +31,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     // Importa UsersModule para acceder a UsersService dentro de AuthService
     UsersModule,
   ],
+
   providers: [AuthService, GoogleStrategy, JwtStrategy],
   controllers: [AuthController],
   exports: [AuthService], // exportamos AuthService por si otros módulos lo necesitan

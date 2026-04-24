@@ -311,6 +311,29 @@ export class AnnotatedMetaphorsService {
       .exec();
   }
 
+  // se agrega un nuevo async para los proyectos
+  async findByProject(projectId: string): Promise<AnnotatedMetaphor[]> {
+    return this.metaphorModel
+      .aggregate([
+        {
+          $lookup: {
+            from: 'documents',
+            localField: 'documentId',
+            foreignField: '_id',
+            as: 'document',
+          },
+        },
+        { $unwind: '$document' },
+        {
+          $match: {
+            'document.projectId': new Types.ObjectId(projectId),
+          },
+        },
+        { $sort: { createdAt: 1 } },
+      ])
+      .exec()
+  }
+
   async findOne(id: string): Promise<AnnotatedMetaphor> {
     const doc = await this.metaphorModel.findById(id).exec();
     if (!doc) throw new NotFoundException(`Metaphor ${id} not found`);
@@ -525,3 +548,4 @@ export class AnnotatedMetaphorsService {
     return this.posService.findAll();
   }
 }
+

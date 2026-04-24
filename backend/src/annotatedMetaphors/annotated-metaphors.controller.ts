@@ -165,3 +165,15 @@ export class AnnotatedMetaphorsController {
     return this.svc.getAllPOS();
   }
 }
+
+// nuevo
+@Controller('annotated-metaphors')
+@UseGuards(JwtAuthGuard)
+export class AnnotatedMetaphorsProjectController {
+  constructor(private readonly svc: AnnotatedMetaphorsService) {}
+
+  @Get('project/:projectId')
+  findByProject(@Param('projectId') projectId: string) {
+    return this.svc.findByProject(projectId)
+  }
+}

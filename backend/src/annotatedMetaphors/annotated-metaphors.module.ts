@@ -2,7 +2,7 @@
 
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { AnnotatedMetaphorsController } from './annotated-metaphors.controller';
+import {AnnotatedMetaphorsController,AnnotatedMetaphorsProjectController,} from './annotated-metaphors.controller';
 import { AnnotatedMetaphorsService } from './annotated-metaphors.service';
 import {
   AnnotatedMetaphor,
@@ -20,7 +20,8 @@ import { PosModule } from './pos.module';
     ]),
     PosModule,
   ],
-  controllers: [AnnotatedMetaphorsController],
+  controllers: [
+    AnnotatedMetaphorsController,AnnotatedMetaphorsProjectController,],
   providers: [AnnotatedMetaphorsService, DomainsService],
 })
 export class AnnotatedMetaphorsModule {}
