@@ -134,7 +134,7 @@ export class AnnotatedMetaphorsController {
   @UseInterceptors(
     FileInterceptor('file', {
       storage: multer.memoryStorage(),
-      limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
+      limits: { fileSize: 20 * 1024 * 1024 },
       fileFilter: (_req, file, cb) => {
         if (!/\.(xlsx|xls)$/i.test(file.originalname)) {
           return cb(new BadRequestException('Only .xlsx/.xls allowed'), false);
@@ -147,15 +147,21 @@ export class AnnotatedMetaphorsController {
   async bulkImport(
     @Param('docId') docId: string,
     @Req() req: JwtRequest,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file?: Express.Multer.File,
   ) {
-    // req.user._id comes from JwtAuthGuard
+    if (!file) {
+      throw new BadRequestException(
+        'No file was uploaded. Make sure the request sends the Excel file in the "file" field.',
+      );
+    }
+
     console.log(
       '[Controller:bulkImport] user=',
       req.user._id,
       'file.originalname=',
       file.originalname,
     );
+
     return this.svc.bulkImportFromExcel(file, docId, req.user._id);
   }
 
