@@ -27,6 +27,24 @@ export class DomainRelationsController {
     return this.service.findAll();
   }
 
+  @Patch('bulk-update')
+  bulkUpdate(
+    @Body('ids') ids: string[],
+    @Body('data') data: UpdateDomainRelationDto,
+  ) {
+    return this.service.bulkUpdate(ids, data);
+  }
+
+  @Patch('bulk-deactivate')
+  bulkDeactivate(@Body('ids') ids: string[]) {
+    return this.service.bulkDeactivate(ids);
+  }
+
+  @Post('bulk-delete')
+  bulkDelete(@Body('ids') ids: string[]) {
+    return this.service.bulkDelete(ids);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
@@ -35,6 +53,16 @@ export class DomainRelationsController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateDomainRelationDto) {
     return this.service.update(id, dto);
+  }
+
+  @Patch(':id/deactivate')
+  deactivate(@Param('id') id: string) {
+    return this.service.deactivate(id);
+  }
+
+  @Patch(':id/activate')
+  activate(@Param('id') id: string) {
+    return this.service.activate(id);
   }
 
   @Delete(':id')

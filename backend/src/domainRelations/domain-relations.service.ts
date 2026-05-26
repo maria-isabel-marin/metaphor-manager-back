@@ -41,9 +41,35 @@ export class DomainRelationsService {
     const updated = await this.relationModel
       .findByIdAndUpdate(id, dto, { new: true })
       .exec();
+
     if (!updated) {
       throw new NotFoundException(`Relation ${id} not found`);
     }
+
+    return updated;
+  }
+
+  async deactivate(id: string): Promise<DomainRelation> {
+    const updated = await this.relationModel
+      .findByIdAndUpdate(id, { isActive: false }, { new: true })
+      .exec();
+
+    if (!updated) {
+      throw new NotFoundException(`Relation ${id} not found`);
+    }
+
+    return updated;
+  }
+
+  async activate(id: string): Promise<DomainRelation> {
+    const updated = await this.relationModel
+      .findByIdAndUpdate(id, { isActive: true }, { new: true })
+      .exec();
+
+    if (!updated) {
+      throw new NotFoundException(`Relation ${id} not found`);
+    }
+
     return updated;
   }
 
@@ -52,5 +78,30 @@ export class DomainRelationsService {
     if (!result) {
       throw new NotFoundException(`Relation ${id} not found`);
     }
+  }
+
+  async bulkUpdate(
+    ids: string[],
+    dto: UpdateDomainRelationDto,
+  ): Promise<DomainRelation[]> {
+    await this.relationModel.updateMany(
+      { _id: { $in: ids } },
+      { $set: dto },
+    );
+
+    return this.relationModel.find({ _id: { $in: ids } }).exec();
+  }
+
+  async bulkDeactivate(ids: string[]): Promise<DomainRelation[]> {
+    await this.relationModel.updateMany(
+      { _id: { $in: ids } },
+      { $set: { isActive: false } },
+    );
+
+    return this.relationModel.find({ _id: { $in: ids } }).exec();
+  }
+
+  async bulkDelete(ids: string[]): Promise<void> {
+    await this.relationModel.deleteMany({ _id: { $in: ids } }).exec();
   }
 }
